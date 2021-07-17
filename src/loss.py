@@ -32,13 +32,26 @@ def cross_entropy_loss(
         raise ValueError(f"Unknown reduction: {reduction}")
 
 
-def NCE_loss(embedding1: torch.Tensor,
-             embedding2: torch.Tensor) -> torch.Tensor:
+def NCE_pair_loss(embeddings1: torch.Tensor,
+                  embeddings2: torch.Tensor) -> torch.Tensor:
     """
     
     Args:
-        embedding1: [N; embed dim]
-        embedding2: [N; embed dim]
+        embeddings1: [N; embed dim]
+        embeddings2: [N; embed dim]
+
+    Returns: loss
+
+    """
+    pass
+
+
+def NCE_loss(embeddings: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
+    """
+    
+    Args:
+        embeddings: [N; embed dim]
+        features: [N; feature dim]
 
     Returns: loss
 

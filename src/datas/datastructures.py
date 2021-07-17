@@ -10,6 +10,47 @@ class ValueFlow:
     statements: numpy.ndarray  # [seq len; n_statements]
     n_statements: int
     raw_statements: List[str]
+    feature: numpy.ndarray = None  # [feature dim,]
+
+
+class ValueFlowBatch:
+    def __init__(self, value_flows: List[ValueFlow]):
+        # [batch size]
+        self.statements_per_label = torch.tensor(
+            [value_flow.n_statements for value_flow in value_flows],
+            dtype=torch.long)
+        self.raw_statements = [
+            value_flow.raw_statements for value_flow in value_flows
+        ]
+
+        # [seq len; total n_statements]
+        self.statements = torch.from_numpy(
+            numpy.hstack([value_flow.statements
+                          for value_flow in value_flows]))
+
+        # [batch size, feature dim]
+        self.features = numpy.full(
+            (len(value_flows), value_flows[0].feature.shape[0]),
+            0,
+            dtype=numpy.long)
+
+        for i, value_flow in enumerate(value_flows):
+            self.features[i] = value_flow.feature
+        self.features = torch.from_numpy(self.features)
+
+    def __len__(self):
+        return len(self.statements_per_label)
+
+    def pin_memory(self) -> "ValueFlowBatch":
+        self.statements_per_label = self.statements_per_label.pin_memory()
+        self.statements = self.statements.pin_memory()
+        self.features = self.features.pin_memory()
+        return self
+
+    def move_to_device(self, device: torch.device):
+        self.statements_per_label = self.statements_per_label.to(device)
+        self.statements = self.statements.to(device)
+        self.features = self.features.to(device)
 
 
 @dataclass
@@ -104,6 +145,7 @@ class MethodSampleBatch:
         self.statements_per_value_flow = self.statements_per_value_flow.pin_memory(
         )
         self.statements = self.statements.pin_memory()
+        self.labels = self.labels.pin_memory()
         return self
 
     def move_to_device(self, device: torch.device):
@@ -111,3 +153,4 @@ class MethodSampleBatch:
         self.statements_per_value_flow = self.statements_per_value_flow.to(
             device)
         self.statements = self.statements.to(device)
+        self.labels = self.labels.to(device)

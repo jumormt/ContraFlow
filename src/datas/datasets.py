@@ -1,3 +1,4 @@
+import numpy
 from torch.utils.data import Dataset
 import json
 from tokenizers import Tokenizer
@@ -5,6 +6,46 @@ from omegaconf import DictConfig
 from src.datas.datastructures import ValueFlowPair, ValueFlow, MethodSample
 from src.utils import strings_to_numpy, PAD
 from os.path import exists
+
+
+class ValueFlowDataset(Dataset):
+    """
+    [{"flow":[st1,st2,...], "feature":[1,0,1]}]
+
+    """
+    def __init__(self, data_path: str, tokenizer: Tokenizer,
+                 config: DictConfig) -> None:
+        super().__init__()
+        self.__config = config
+        if not exists(data_path):
+            raise ValueError(f"Can't find file with data: {data_path}")
+        with open(data_path, "r") as f:
+            self.__value_flows = list(json.load(f))
+        self.__n_samples = len(self.__value_flows)
+        self.__tokenizer = tokenizer
+        self.__pad_idx = tokenizer.token_to_id(PAD)
+        self.__tokenizer.enable_padding(pad_id=self.__pad_idx,
+                                        pad_token=PAD,
+                                        length=config.max_token_parts)
+        self.__tokenizer.enable_truncation(max_length=config.max_token_parts)
+
+    def __len__(self) -> int:
+        return self.__n_samples
+
+    def __getitem__(self, index) -> ValueFlow:
+        value_flow = self.__value_flows[index]
+        value_flow_raw = value_flow["flow"]
+        feature = value_flow["feature"]
+        statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
+                                      self.__config.max_token_parts)
+
+        return ValueFlow(statements=statements,
+                         n_statements=len(value_flow_raw),
+                         raw_statements=value_flow_raw,
+                         feature=numpy.array(feature))
+
+    def get_n_samples(self):
+        return self.__n_samples
 
 
 class ValueFlowPairDataset(Dataset):
