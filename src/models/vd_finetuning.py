@@ -4,15 +4,14 @@ import torch
 from datas.datastructures import MethodSampleBatch
 from src.models.modules.attention import LocalAttention
 import numpy
-from typing import List, Tuple, Optional, Iterator, Dict
+from typing import List, Tuple, Optional, Dict
 from pytorch_lightning import LightningModule
 from src.models.modules.flow_encoder import FlowEncoder
-from src.models.modules.attention import LocalAttention
 from torch.optim import Adam, SGD, Adamax, RMSprop
-from src.loss import NCE_loss
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 import torch.nn.functional as F
 from src.metrics import Statistic
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class VulDetectModel(LightningModule):
@@ -52,6 +51,13 @@ class VulDetectModel(LightningModule):
             nn.ReLU(),
             torch.nn.Linear(hidden_size, config.n_classes),
         )
+        encoder_layers = TransformerEncoderLayer(hidden_size,
+                                                 config.nhead,
+                                                 hidden_size,
+                                                 config.self_attn_dropout,
+                                                 batch_first=True)
+        self.__transformer_encoder = TransformerEncoder(
+            encoder_layers, config.nlayers)
 
     def forward(self, statements: torch.Tensor,
                 statements_per_value_flow: torch.Tensor,
@@ -71,6 +77,11 @@ class VulDetectModel(LightningModule):
         # [n_method; max method n_flow; flow_hidden_size], [n_method; max method n_flow]
         method_flows_embeddings, method_flows_attn_mask = self._cut_value_flow_embeddings(
             value_flow_embeddings, value_flow_per_label)
+        # [n_method; max method n_flow; flow_hidden_size]
+        method_flows_embeddings = self.__transformer_encoder(
+            method_flows_embeddings,
+            mask=None,
+            src_key_padding_mask=method_flows_attn_mask)
         # [n_method; max method n_flow; 1]
         self.__method_attn_weights = self.__flow_attn(method_flows_embeddings,
                                                       method_flows_attn_mask)
@@ -140,16 +151,6 @@ class VulDetectModel(LightningModule):
     def _log_training_step(self, results: Dict):
         self.log_dict(results, on_step=True, on_epoch=False)
 
-    def _prepare_epoch_end_log(self, step_outputs: EPOCH_OUTPUT,
-                               step: str) -> Dict[str, torch.Tensor]:
-        with torch.no_grad():
-            losses = [
-                so if isinstance(so, torch.Tensor) else so["loss"]
-                for so in step_outputs
-            ]
-            mean_loss = torch.stack(losses).mean()
-        return {f"{step}_loss": mean_loss}
-
     def training_step(self, batch: MethodSampleBatch,
                       batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_method; n_classes]
@@ -168,11 +169,11 @@ class VulDetectModel(LightningModule):
             result.update(batch_metric)
 
             self._log_training_step(result)
-            self.log("f1",
+            self.log("F1",
                      batch_metric["train/f1"],
                      prog_bar=True,
                      logger=False)
-        return loss
+        return {"loss": loss, "statistic": statistic}
 
     def validation_step(self, batch: MethodSampleBatch,
                         batch_idx: int) -> torch.Tensor:  # type: ignore
@@ -191,18 +192,44 @@ class VulDetectModel(LightningModule):
             batch_metric = statistic.calculate_metrics(group="val")
             result.update(batch_metric)
 
-        return loss
+        return {"loss": loss, "statistic": statistic}
 
     def test_step(self, batch: MethodSampleBatch,
                   batch_idx: int) -> torch.Tensor:  # type: ignore
-        # [n_flow; flow_hidden_size]
-        embeddings = self(batch.statements, batch.statements_per_label)
-        return NCE_loss(embeddings, batch.features)
+        # [n_method; n_classes]
+        logits = self(batch.statements, batch.statements_per_value_flow,
+                      batch.value_flow_per_label)
+        loss = F.cross_entropy(logits, batch.labels)
+        result: Dict = {"test/loss", loss}
+        with torch.no_grad():
+            _, preds = logits.max(dim=1)
+            statistic = Statistic().calculate_statistic(
+                batch.labels,
+                preds,
+                2,
+            )
+            batch_metric = statistic.calculate_metrics(group="test")
+            result.update(batch_metric)
+
+        return {"loss": loss, "statistic": statistic}
 
     # ========== EPOCH END ==========
+    def _prepare_epoch_end_log(self, step_outputs: EPOCH_OUTPUT,
+                               step: str) -> Dict[str, torch.Tensor]:
+        with torch.no_grad():
+            losses = [
+                so if isinstance(so, torch.Tensor) else so["loss"]
+                for so in step_outputs
+            ]
+            mean_loss = torch.stack(losses).mean()
+        return {f"{step}_loss": mean_loss}
 
-    def _shared_epoch_end(self, step_outputs: EPOCH_OUTPUT, step: str):
-        log = self._prepare_epoch_end_log(step_outputs, step)
+    def _shared_epoch_end(self, step_outputs: EPOCH_OUTPUT, group: str):
+        log = self._prepare_epoch_end_log(step_outputs, group)
+        log.update(
+            Statistic.union_statistics([
+                out["statistic"] for out in step_outputs
+            ]).calculate_metrics(group))
         self.log_dict(log, on_step=False, on_epoch=True)
 
     def training_epoch_end(self, training_step_output: EPOCH_OUTPUT):
