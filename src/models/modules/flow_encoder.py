@@ -172,7 +172,7 @@ class FlowEncoder(nn.Module):
             statements_per_label (Tensor): [n_flow]
             mask_value (float): -inf
 
-        Returns: [n_flow; max flow n_statements; units], [n_flow size; max flow n_statements]
+        Returns: [n_flow; max flow n_statements; units], [n_flow; max flow n_statements]
         """
         batch_size = len(statements_per_label)
         max_context_len = max(statements_per_label)
@@ -195,8 +195,7 @@ class FlowEncoder(nn.Module):
         """get the attention scores of statements and tokens
 
         Returns:
-            : [n_flow; max flow n_statements; seq len] the importance of tokens on each statement on each value flow
             : [n_flow; max flow n_statements] the importance of statements on each value flow
+            : [n_flow; max flow n_statements; seq len] the importance of tokens on each statement on each value flow
         """
-        return self.__flow_attn_weights, self.__flow_statments_weights.squeeze(
-            2)
+        return self.__flow_attn_weights.squeeze(2), self.__flow_statments_weights

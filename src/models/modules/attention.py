@@ -41,7 +41,7 @@ class LocalAttention(nn.Module):
 
         :param encoder_outputs: [batch size; seq len; units]
         :param mask: [batch size; seq len]
-        :return: [batch size; 1; seq len]
+        :return: [batch size; seq len; 1]
         """
         # [batch size; seq len; 1]
         attended_encoder_outputs = self.attn(encoder_outputs)
