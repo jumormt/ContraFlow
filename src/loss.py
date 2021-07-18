@@ -48,7 +48,8 @@ def NCE_pair_loss(embeddings1: torch.Tensor,
 
 def NCE_loss(embeddings: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
     """
-    
+    sum_i(sim(flow_i, [flow_i+])/sim(flow_i, [flow_i+, flow_i-])
+
     Args:
         embeddings: [N; embed dim]
         features: [N; feature dim]

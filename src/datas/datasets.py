@@ -119,8 +119,13 @@ class MethodSampleDataset(Dataset):
 
     def __getitem__(self, index) -> MethodSample:
         method = self.__methods[index]
+        n_flow = min(len(method["flows"]), self.__config.hyper_parameters.max_n_flow)
+        flow_indexes = numpy.arang(n_flow)
+        numpy.random.shuffle(flow_indexes)
+
         value_flows = list()
-        for value_flow_raw in method["flows"]:
+        for i in flow_indexes:
+            value_flow_raw = method["flows"][i]
             statements = strings_to_numpy(
                 value_flow_raw, self.__tokenizer,
                 self.__config.encoder.max_token_parts)
