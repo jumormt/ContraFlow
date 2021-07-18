@@ -9,7 +9,7 @@ import torch
 class ValueFlow:
     statements: numpy.ndarray  # [seq len; n_statements]
     n_statements: int
-    raw_statements: List[str]
+    statements_idx: List[int] = None
     feature: numpy.ndarray = None  # [feature dim,]
 
 
@@ -19,9 +19,6 @@ class ValueFlowBatch:
         self.statements_per_label = torch.tensor(
             [value_flow.n_statements for value_flow in value_flows],
             dtype=torch.long)
-        self.raw_statements = [
-            value_flow.raw_statements for value_flow in value_flows
-        ]
 
         # [seq len; total n_statements]
         self.statements = torch.from_numpy(
@@ -68,7 +65,6 @@ class ValueFlowPairBatch:
         self.statements_per_label2 = torch.tensor(
             [_pair.value_flow_2.n_statements for _pair in value_flow_pairs],
             dtype=torch.long)
-        # self.raw_statements1 = [_pair.value_flow_1.raw_statements for _pair in value_flow_pairs]
 
         # [seq len; total n_statements]
         self.statements1 = torch.from_numpy(
@@ -77,7 +73,6 @@ class ValueFlowPairBatch:
         self.statements2 = torch.from_numpy(
             numpy.hstack(
                 [_pair.value_flow_2.statements for _pair in value_flow_pairs]))
-        # self.raw_statements2 = [_pair.value_flow_2.raw_statements for _pair in value_flow_pairs]
 
     def __len__(self):
         return len(self.statements_per_label1)
@@ -100,6 +95,7 @@ class ValueFlowPairBatch:
 class MethodSample:
     value_flows: List[ValueFlow]
     label: int
+    flaws: List[int]
 
 
 class MethodSampleBatch:
@@ -111,28 +107,32 @@ class MethodSampleBatch:
         self.labels = torch.tensor(
             [method_sample.label for method_sample in method_samples],
             dtype=torch.long)
+        self.flaws: List[List[int]] = [
+            method_sample.flaws for method_sample in method_samples
+        ]
 
         self.statements_per_value_flow = list()
-        self.value_flows = list()
-        self.methods_raw: List[List[List[str]]] = list()
+        self.statements = list()
+        self.statements_idxes = list()
+
         for method_sample in method_samples:
             self.statements_per_value_flow.extend([
                 value_flow.n_statements
                 for value_flow in method_sample.value_flows
             ])
-            self.value_flows.append(
+            self.statements.append(
                 # [seq len; method n_statements]
                 torch.from_numpy(
                     numpy.hstack([
                         value_flow.statements
                         for value_flow in method_sample.value_flows
                     ])))
-            self.methods_raw.append([
-                value_flow.raw_statements
+            self.statements_idxes.append([
+                value_flow.statements_idx
                 for value_flow in method_sample.value_flows
             ])
         # [seq len; total n_statements]
-        self.statements = torch.cat(self.value_flows, dim=1)
+        self.statements = torch.cat(self.statements, dim=1)
         # [total n_flow]
         self.statements_per_value_flow = torch.tensor(
             self.statements_per_value_flow, dtype=torch.long)

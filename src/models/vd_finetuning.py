@@ -74,6 +74,12 @@ class VulDetectModel(LightningModule):
         # [total n_flow; flow_hidden_size]
         value_flow_embeddings = self._encoder(statements,
                                               statements_per_value_flow)
+        # [total n_flow; max flow n_statements]
+        flow_attn_weights, _ = self._encoder.get_flow_attention_weights()
+        # [n_method; max method n_flow; max flow n_statements]
+        self.__value_flow_attn_weights, _ = self._cut_value_flow_embeddings(
+            flow_attn_weights, value_flow_per_label)
+
         # [n_method; max method n_flow; flow_hidden_size], [n_method; max method n_flow]
         method_flows_embeddings, method_flows_attn_mask = self._cut_value_flow_embeddings(
             value_flow_embeddings, value_flow_per_label)
@@ -91,6 +97,15 @@ class VulDetectModel(LightningModule):
             method_flows_embeddings).squeeze(1)
         # [n_method; n_classes]
         return self.__classifier(method_embeddings)
+
+    def get_attention_weights(self):
+        """get the attention scores of value flows, statements and tokens
+
+        Returns:
+            : [n_method, max n_flow] the importance of value flows
+            : [n_method, max n_flow; max flow n_statements] the importance of statements on each value flow
+        """
+        return self.__method_attn_weights, self.__value_flow_attn_weights
 
     def _segment_sizes_to_slices(self, sizes: torch.Tensor) -> List:
         cum_sums = numpy.cumsum(sizes.cpu())
