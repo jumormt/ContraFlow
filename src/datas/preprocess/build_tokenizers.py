@@ -12,7 +12,7 @@ from tokenizers.normalizers import Sequence, NFKC
 from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.trainers import BpeTrainer
 from tqdm import tqdm
-
+from src.datas.preprocess.lexical_parser import tokenize_code_line
 from src.utils import UNK, MASK, PAD, count_lines_in_file, filter_warnings
 
 DROPOUT = None
@@ -41,8 +41,9 @@ def train_bpe(config_path: str):
 
     # create token counter from tokens.txt
     with open(config.tokens_path, "r") as f:
-        for line in tqdm(f, total=count_lines_in_file(config.tokens)):
-            tokens = line.split()
+        for line in tqdm(f, total=count_lines_in_file(config.tokens_path)):
+            # tokens = line.split()
+            tokens = tokenize_code_line(line)
             token_counter.update(tokens)
 
     bpe_tokenizer = Tokenizer(
