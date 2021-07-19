@@ -102,7 +102,7 @@ class MethodSampleBatch:
     def __init__(self, method_samples: List[MethodSample]):
         # [batch size]
         self.value_flow_per_label = torch.tensor(
-            [len(method_sample) for method_sample in method_samples],
+            [len(method_sample.value_flows) for method_sample in method_samples],
             dtype=torch.long)
         self.labels = torch.tensor(
             [method_sample.label for method_sample in method_samples],

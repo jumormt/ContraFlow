@@ -197,8 +197,14 @@ class VulDetectModel(LightningModule):
             )
             batch_metric = statistic.calculate_metrics(group="train")
             result.update(batch_metric)
-            # TODO: interpretation evaluation
 
+            method_attn_weights, value_flow_attn_weights = self.get_attention_weights(
+            )
+            true_positives_slice = (batch.labels == 1) & (preds == 1)
+            btp_metric = statistic.calc_btp_metrics(
+                true_positives_slice, batch.statements_idxes, batch.flaws,
+                method_attn_weights, value_flow_attn_weights, "train")
+            result.update(btp_metric)
             self._log_training_step(result)
             self.log("F1",
                      batch_metric["train/f1"],
@@ -222,7 +228,13 @@ class VulDetectModel(LightningModule):
             )
             batch_metric = statistic.calculate_metrics(group="val")
             result.update(batch_metric)
-
+            method_attn_weights, value_flow_attn_weights = self.get_attention_weights(
+            )
+            true_positives_slice = (batch.labels == 1) & (preds == 1)
+            btp_metric = statistic.calc_btp_metrics(
+                true_positives_slice, batch.statements_idxes, batch.flaws,
+                method_attn_weights, value_flow_attn_weights, "val")
+            result.update(btp_metric)
         return {"loss": loss, "statistic": statistic}
 
     def test_step(self, batch: MethodSampleBatch,
@@ -241,6 +253,13 @@ class VulDetectModel(LightningModule):
             )
             batch_metric = statistic.calculate_metrics(group="test")
             result.update(batch_metric)
+            method_attn_weights, value_flow_attn_weights = self.get_attention_weights(
+            )
+            true_positives_slice = (batch.labels == 1) & (preds == 1)
+            btp_metric = statistic.calc_btp_metrics(
+                true_positives_slice, batch.statements_idxes, batch.flaws,
+                method_attn_weights, value_flow_attn_weights, "test")
+            result.update(btp_metric)
 
         return {"loss": loss, "statistic": statistic}
 
@@ -257,10 +276,10 @@ class VulDetectModel(LightningModule):
 
     def _shared_epoch_end(self, step_outputs: EPOCH_OUTPUT, group: str):
         log = self._prepare_epoch_end_log(step_outputs, group)
-        log.update(
-            Statistic.union_statistics([
-                out["statistic"] for out in step_outputs
-            ]).calculate_metrics(group))
+        statistic = Statistic.union_statistics(
+            [out["statistic"] for out in step_outputs])
+        log.update(statistic.calculate_metrics(group))
+        log.update(statistic.mean_BTP(group))
         self.log_dict(log, on_step=False, on_epoch=True)
 
     def training_epoch_end(self, training_step_output: EPOCH_OUTPUT):
