@@ -15,6 +15,15 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class VulDetectModel(LightningModule):
+    r"""vulnerability detection model to detect vulnerability at method-level and interpret at line-level
+    This implementation is based on self-attention and attention mechanism
+
+    Args:
+        config (DictConfig): configuration for the model
+        vocabulary_size (int): the size of vacabulary, e.g. tokenizer.get_vocab_size()
+        pad_idx (int): the index of padding token, e.g., tokenizer.token_to_id(PAD)
+        pretrain (str): path of .ckpt pre-trained model
+    """
 
     _optimizers = {
         "RMSprop": RMSprop,
@@ -44,13 +53,7 @@ class VulDetectModel(LightningModule):
             print("No pre-trained weights for sequence generating model")
             self._encoder = FlowEncoder(config.encoder, vocabulary_size,
                                         pad_idx)
-        self.__flow_attn = LocalAttention(hidden_size)
-        self.__classifier = nn.Sequential(
-            torch.nn.Linear(hidden_size, hidden_size),
-            torch.nn.BatchNorm1d(hidden_size),
-            nn.ReLU(),
-            torch.nn.Linear(hidden_size, config.n_classes),
-        )
+        # self-attention
         encoder_layers = TransformerEncoderLayer(hidden_size,
                                                  config.nhead,
                                                  hidden_size,
@@ -58,6 +61,17 @@ class VulDetectModel(LightningModule):
                                                  batch_first=True)
         self.__transformer_encoder = TransformerEncoder(
             encoder_layers, config.nlayers)
+        self.__flow_attn = LocalAttention(hidden_size)
+        # hidden layers
+        layers = [nn.Linear(hidden_size, hidden_size), nn.ReLU()]
+        if config.n_hidden_layers < 1:
+            raise ValueError(
+                f"Invalid layers number ({config.n_hidden_layers})")
+        for _ in range(config.n_hidden_layers - 1):
+            layers += [nn.Linear(hidden_size, hidden_size), nn.ReLU()]
+        self.__hidden_layers = nn.Sequential(*layers)
+
+        self.__classifier = nn.Linear(hidden_size, config.n_classes)
 
     def forward(self, statements: torch.Tensor,
                 statements_per_value_flow: torch.Tensor,
@@ -95,11 +109,12 @@ class VulDetectModel(LightningModule):
         method_embeddings = torch.bmm(
             self.__method_attn_weights.transpose(1, 2),
             method_flows_embeddings).squeeze(1)
+        hiddens = self.__hidden_layers(method_embeddings)
         # [n_method; n_classes]
-        return self.__classifier(method_embeddings)
+        return self.__classifier(hiddens)
 
     def get_attention_weights(self):
-        """get the attention scores of value flows, statements and tokens
+        """get the attention scores of value flows and statements
 
         Returns:
             : [n_method, max n_flow] the importance of value flows
@@ -182,6 +197,7 @@ class VulDetectModel(LightningModule):
             )
             batch_metric = statistic.calculate_metrics(group="train")
             result.update(batch_metric)
+            # TODO: interpretation evaluation
 
             self._log_training_step(result)
             self.log("F1",

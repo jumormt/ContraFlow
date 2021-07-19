@@ -1,11 +1,12 @@
-from os.path import basename
+from os.path import basename, join
 
 import torch
 from commode_utils.callback import PrintEpochResultCallback, UploadCheckpointCallback
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule, LightningDataModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
-from pytorch_lightning.loggers import WandbLogger
+# from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
 def train(model: LightningModule, data_module: LightningDataModule,
@@ -13,25 +14,41 @@ def train(model: LightningModule, data_module: LightningDataModule,
     # Define logger
     model_name = model.__class__.__name__
     dataset_name = basename(config.data_folder)
-    wandb_logger = WandbLogger(project=f"{model_name} -- {dataset_name}",
-                               offline=config.offline)
+    # wandb logger
+    # wandb_logger = WandbLogger(project=f"{model_name} -- {dataset_name}",
+    #                            offline=config.offline)
 
     # Define callbacks
+    # checkpoint_callback = ModelCheckpoint(
+    #     dirpath=wandb_logger.experiment.dir,
+    #     filename="{epoch:02d}-{step:02d}-{val_loss:.4f}",
+    #     monitor="val_loss",
+    #     every_n_val_epochs=1,
+    #     save_top_k=-1,
+    # )
+    # upload_weights = UploadCheckpointCallback(wandb_logger.experiment.dir)
+    # tensorboard logger
+    tensorlogger = TensorBoardLogger(join("ts_logger", model_name),
+                                     dataset_name)
+    # define model checkpoint callback
     checkpoint_callback = ModelCheckpoint(
-        dirpath=wandb_logger.experiment.dir,
-        filename="{epoch:02d}-{step:02d}-{val_loss:.4f}",
+        dirpath=join(tensorlogger.log_dir, "checkpoints"),
         monitor="val_loss",
+        filename="{epoch:02d}-{step:02d}-{val_loss:.4f}",
         every_n_val_epochs=1,
         save_top_k=-1,
     )
+    upload_weights = UploadCheckpointCallback(
+        join(tensorlogger.log_dir, "checkpoints"))
+
     early_stopping_callback = EarlyStopping(patience=config.train.patience,
                                             monitor="val_loss",
                                             verbose=True,
                                             mode="min")
+
     lr_logger = LearningRateMonitor("step")
     print_epoch_results = PrintEpochResultCallback(split_symbol="_",
                                                    after_test=False)
-    upload_weights = UploadCheckpointCallback(wandb_logger.experiment.dir)
 
     gpu = 1 if torch.cuda.is_available() else None
     trainer = Trainer(
@@ -40,7 +57,7 @@ def train(model: LightningModule, data_module: LightningDataModule,
         deterministic=True,
         val_check_interval=config.train.val_every_step,
         log_every_n_steps=config.train.log_every_n_steps,
-        logger=wandb_logger,
+        logger=[tensorlogger],
         gpus=gpu,
         progress_bar_refresh_rate=config.progress_bar_refresh_rate,
         callbacks=[

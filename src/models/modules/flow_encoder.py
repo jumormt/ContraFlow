@@ -65,6 +65,7 @@ class FlowEncoder(nn.Module):
             out_dim (int): output dimension
             activation (str): the name of activation function
         """
+        # add drop out?
         return torch.nn.Sequential(
             torch.nn.Linear(2 * in_dim, 2 * in_dim),
             torch.nn.BatchNorm1d(2 * in_dim),
