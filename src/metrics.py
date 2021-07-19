@@ -133,6 +133,7 @@ class Statistic:
         # for each method
         for i in range(flow_weights.size(0)):
             predicted_idxes = set()
+            statements_idxes[i] = numpy.array(statements_idxes[i])
             # [k'] k' value flows
             topk_values_idx = topk_values[i][
                 topk_values[i] < len(statements_idxes[i])]
