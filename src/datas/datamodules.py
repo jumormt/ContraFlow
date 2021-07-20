@@ -12,13 +12,13 @@ from typing import List, Optional
 from torch.utils.data import DataLoader, Dataset
 
 
-class ValueFlowDataModules(LightningDataModule):
-    def __init__(self, data_folder: str, tokenizer: Tokenizer,
-                 config: DictConfig):
+class ValueFlowDataModule(LightningDataModule):
+    def __init__(self, config: DictConfig, tokenizer: Tokenizer
+                 ):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
-        self.data_folder = data_folder
+        self.__data_folder = config.data_folder
         self.__n_workers = cpu_count(
         ) if self.__config.num_workers == -1 else self.__config.num_workers
 
@@ -74,13 +74,13 @@ class ValueFlowDataModules(LightningDataModule):
         return batch
 
 
-class ValueFlowPairDataModules(LightningDataModule):
-    def __init__(self, data_folder: str, tokenizer: Tokenizer,
-                 config: DictConfig):
+class ValueFlowPairDataModule(LightningDataModule):
+    def __init__(self, config: DictConfig, tokenizer: Tokenizer
+                 ):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
-        self.data_folder = data_folder
+        self.__data_folder = config.data_folder
         self.__n_workers = cpu_count(
         ) if self.__config.num_workers == -1 else self.__config.num_workers
 
@@ -136,13 +136,13 @@ class ValueFlowPairDataModules(LightningDataModule):
         return batch
 
 
-class MethodSampleDataModules(LightningDataModule):
-    def __init__(self, data_folder: str, tokenizer: Tokenizer,
-                 config: DictConfig):
+class MethodSampleDataModule(LightningDataModule):
+    def __init__(self, config: DictConfig, tokenizer: Tokenizer
+                 ):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
-        self.data_folder = data_folder
+        self.__data_folder = config.data_folder
         self.__n_workers = cpu_count(
         ) if self.__config.num_workers == -1 else self.__config.num_workers
 

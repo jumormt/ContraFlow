@@ -1,0 +1,27 @@
+data_folder: "../data/cl_pretraining/d2a"
+
+max_token_parts: 32
+num_workers: 8
+
+encoder:
+  embed_dim: 64
+  activation: "relu"
+
+  st_hidden_size: 64
+  st_num_layers: 1
+  st_use_bi_rnn: true
+  st_dropout: 0.5
+
+  flow_hidden_size: 128
+  flow_num_layers: 1
+  flow_use_bi_rnn: true
+  flow_dropout: 0.5
+
+hyper_parameters:
+  optimizer: "SGD"
+  learning_rate: 0.005
+  decay_gamma: 0.95
+  batch_size: 64
+  shuffle_data: true
+
+
