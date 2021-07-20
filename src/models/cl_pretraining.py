@@ -1,6 +1,6 @@
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoder import FlowEncoder
+from src.models.modules.flow_encoders import FlowLSTMEncoder, FlowBERTEncoder
 from src.datas.datastructures import ValueFlowBatch
 import torch
 from typing import List, Iterator, Dict
@@ -22,7 +22,13 @@ class FlowCLPretraining(LightningModule):
     def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
         super().__init__()
         self.__config = config
-        self._encoder = FlowEncoder(config.encoder, vocabulary_size, pad_idx)
+        if config.encoder.name == "LSTM":
+            self._encoder = FlowLSTMEncoder(config.encoder, vocabulary_size,
+                                            pad_idx)
+        elif config.encoder.name == "BERT":
+            self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
+        else:
+            raise ValueError(f"Cant find encoder model: {config.encoder.name}")
 
     def forward(self, statements: torch.Tensor,
                 statements_per_label: torch.Tensor) -> torch.Tensor:
@@ -53,7 +59,7 @@ class FlowCLPretraining(LightningModule):
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             lr_lambda=lambda epoch: self.__config.hyper_parameters.decay_gamma
-            ** epoch)
+            **epoch)
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
     def _log_training_step(self, results: Dict):

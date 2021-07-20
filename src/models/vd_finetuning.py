@@ -6,7 +6,7 @@ from src.models.modules.attention import LocalAttention
 import numpy
 from typing import List, Tuple, Optional, Dict
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoder import FlowEncoder
+from src.models.modules.flow_encoders import FlowLSTMEncoder
 from torch.optim import Adam, SGD, Adamax, RMSprop
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 import torch.nn.functional as F
@@ -51,8 +51,8 @@ class VulDetectModel(LightningModule):
             self._encoder.load_state_dict(state_dict)
         else:
             print("No pre-trained weights for sequence generating model")
-            self._encoder = FlowEncoder(config.encoder, vocabulary_size,
-                                        pad_idx)
+            self._encoder = FlowLSTMEncoder(config.encoder, vocabulary_size,
+                                            pad_idx)
         # self-attention
         encoder_layers = TransformerEncoderLayer(hidden_size,
                                                  config.nhead,

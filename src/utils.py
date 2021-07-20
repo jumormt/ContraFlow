@@ -1,9 +1,12 @@
 from warnings import filterwarnings
 import subprocess
+from ipython_genutils.py3compat import encode
+from pycparser.ply.yacc import token
 from tokenizers import Tokenizer
-from typing import List
+from typing import List, Union
 import numpy
 import torch
+from transformers import RobertaTokenizer
 
 PAD = "<PAD>"
 UNK = "<UNK>"
@@ -44,14 +47,27 @@ def count_lines_in_file(file_path: str) -> int:
     return int(command_result.stdout.split()[0])
 
 
-def strings_to_numpy(values: List[str], tokenizer: Tokenizer,
-                     max_len: int) -> numpy.ndarray:
-    res = numpy.full((max_len, len(values)),
-                     tokenizer.token_to_id(PAD),
-                     dtype=numpy.long)
+def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
+                                                         RobertaTokenizer],
+                     encoder_name: str, max_len: int) -> numpy.ndarray:
 
-    for i, value in enumerate(values):
-        res[:, i] = tokenizer.encode(value).ids
+    if encoder_name == "LSTM":
+        res = numpy.full((max_len, len(values)),
+                         tokenizer.token_to_id(PAD),
+                         dtype=numpy.compat.long)
+
+        for i, value in enumerate(values):
+            res[:, i] = tokenizer.encode(value).ids
+    elif encoder_name == "BERT":
+        res = numpy.full((max_len, len(values)),
+                         tokenizer.pad_token_id,
+                         dtype=numpy.compat.long)
+        for i, value in enumerate(values):
+            tokens = [tokenizer.cls_token
+                      ] + tokenizer.tokenize(value) + [tokenizer.sep_token]
+            res[:, i] = tokenizer.convert_tokens_to_ids(tokens)[:max_len]
+    else:
+        raise ValueError(f"Cant find encoder name: {encoder_name}!")
     return res
 
 

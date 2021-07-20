@@ -5,16 +5,17 @@ from os import cpu_count
 from os.path import join
 
 import torch
+from transformers import RobertaTokenizer
 
 from src.datas.datastructures import ValueFlowPairBatch, ValueFlowPair, MethodSampleBatch, MethodSample, ValueFlow, ValueFlowBatch
 from src.datas.datasets import ValueFlowPairDataset, MethodSampleDataset, ValueFlowDataset
-from typing import List, Optional
+from typing import List, Optional, Union
 from torch.utils.data import DataLoader, Dataset
 
 
 class ValueFlowDataModule(LightningDataModule):
-    def __init__(self, config: DictConfig, tokenizer: Tokenizer
-                 ):
+    def __init__(self, config: DictConfig, tokenizer: Union[Tokenizer,
+                                                            RobertaTokenizer]):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
@@ -27,7 +28,7 @@ class ValueFlowDataModule(LightningDataModule):
         return ValueFlowBatch(batch)
 
     def __create_dataset(self, data_path: str) -> Dataset:
-        return ValueFlowDataset(data_path, self.__tokenizer, self.__config)
+        return ValueFlowDataset(data_path, self.__config, self.__tokenizer)
 
     def train_dataloader(self) -> DataLoader:
         train_dataset_path = join(self.__data_folder, "train.json")
@@ -75,8 +76,8 @@ class ValueFlowDataModule(LightningDataModule):
 
 
 class ValueFlowPairDataModule(LightningDataModule):
-    def __init__(self, config: DictConfig, tokenizer: Tokenizer
-                 ):
+    def __init__(self, config: DictConfig, tokenizer: Union[Tokenizer,
+                                                            RobertaTokenizer]):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
@@ -89,7 +90,7 @@ class ValueFlowPairDataModule(LightningDataModule):
         return ValueFlowPairBatch(batch)
 
     def __create_dataset(self, data_path: str) -> Dataset:
-        return ValueFlowPairDataset(data_path, self.__tokenizer, self.__config)
+        return ValueFlowPairDataset(data_path, self.__config, self.__tokenizer)
 
     def train_dataloader(self) -> DataLoader:
         train_dataset_path = join(self.__data_folder, "train.json")
@@ -137,8 +138,8 @@ class ValueFlowPairDataModule(LightningDataModule):
 
 
 class MethodSampleDataModule(LightningDataModule):
-    def __init__(self, config: DictConfig, tokenizer: Tokenizer
-                 ):
+    def __init__(self, config: DictConfig, tokenizer: Union[Tokenizer,
+                                                            RobertaTokenizer]):
         super().__init__()
         self.__tokenizer = tokenizer
         self.__config = config
@@ -151,7 +152,7 @@ class MethodSampleDataModule(LightningDataModule):
         return MethodSampleBatch(batch)
 
     def __create_dataset(self, data_path: str) -> Dataset:
-        return MethodSampleDataset(data_path, self.__tokenizer, self.__config)
+        return MethodSampleDataset(data_path, self.__config, self.__tokenizer)
 
     def train_dataloader(self) -> DataLoader:
         train_dataset_path = join(self.__data_folder, "train.json")

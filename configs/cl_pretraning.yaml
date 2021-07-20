@@ -4,6 +4,7 @@ max_token_parts: 32
 num_workers: 8
 
 encoder:
+  name: "BERT"
   embed_dim: 64
   activation: "relu"
 
