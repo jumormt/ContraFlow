@@ -43,7 +43,24 @@ def NCE_pair_loss(embeddings1: torch.Tensor,
     Returns: loss
 
     """
-    pass
+    n_sample = embeddings1.size(0)
+    # [N; N]
+    sim_matrix = calc_sim_matrix(embeddings1, embeddings2)
+
+    loss = 0
+    for i in range(n_sample):
+        positive_exp_sim_sum = torch.exp(sim_matrix[i][i])
+        all_exp_sim_sum = torch.exp(sim_matrix[i]).sum()
+        loss_i = positive_exp_sim_sum / all_exp_sim_sum
+        loss = loss + loss_i
+    sim_matrix_reverse = sim_matrix.transpose(0, 1)
+    for i in range(n_sample):
+        positive_exp_sim_sum = torch.exp(sim_matrix_reverse[i][i])
+        all_exp_sim_sum = torch.exp(sim_matrix_reverse[i]).sum()
+        loss_i = positive_exp_sim_sum / all_exp_sim_sum
+        loss = loss + loss_i
+
+    return loss / (2 * n_sample)
 
 
 def NCE_loss(embeddings: torch.Tensor,
