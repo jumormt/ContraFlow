@@ -3,6 +3,7 @@ import subprocess
 from tokenizers import Tokenizer
 from typing import List
 import numpy
+import torch
 
 PAD = "<PAD>"
 UNK = "<UNK>"
@@ -52,3 +53,21 @@ def strings_to_numpy(values: List[str], tokenizer: Tokenizer,
     for i, value in enumerate(values):
         res[:, i] = tokenizer.encode(value).ids
     return res
+
+
+def calc_sim_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-8):
+    """
+    caculate the cosine similarity between each vector in a and b
+
+    Args:
+        a (Tensor): [N; dim]
+        b (Tensor): [N; dim]
+        eps (float): avoid numerical error
+    
+    Returns: [N; N]
+    """
+    a_n, b_n = a.norm(dim=1)[:, None], b.norm(dim=1)[:, None]
+    a_norm = a / torch.clamp(a_n, min=eps)
+    b_norm = b / torch.clamp(b_n, min=eps)
+    sim_mt = torch.mm(a_norm, b_norm.transpose(0, 1))
+    return sim_mt

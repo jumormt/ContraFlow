@@ -1,5 +1,5 @@
 from typing import Optional
-
+from src.utils import calc_sim_matrix
 import torch
 
 
@@ -46,15 +46,29 @@ def NCE_pair_loss(embeddings1: torch.Tensor,
     pass
 
 
-def NCE_loss(embeddings: torch.Tensor, features: torch.Tensor) -> torch.Tensor:
+def NCE_loss(embeddings: torch.Tensor,
+             features: torch.Tensor,
+             thres: float = 0.5) -> torch.Tensor:
     """
     sum_i(sim(flow_i, [flow_i+])/sim(flow_i, [flow_i+, flow_i-])
 
     Args:
-        embeddings: [N; embed dim]
-        features: [N; feature dim]
+        embeddings (Tensor): [N; embed dim]
+        features (Tensor): [N; feature dim]
+        thres (float): similarity threshold
 
     Returns: loss
 
     """
-    pass
+    n_sample = features.size(0)
+    # [N; N]
+    sim_matrix = calc_sim_matrix(embeddings, embeddings)
+    sim_slice = (calc_sim_matrix(features, features) -
+                 torch.eye(n_sample)) > thres
+    loss = 0
+    for i in range(n_sample):
+        positive_exp_sim_sum = torch.exp(sim_matrix[i][sim_slice[i]]).sum()
+        all_exp_sim_sum = torch.exp(sim_matrix[i]).sum()
+        loss_i = positive_exp_sim_sum / all_exp_sim_sum
+        loss = loss + loss_i
+    return loss / n_sample
