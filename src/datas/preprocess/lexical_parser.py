@@ -1,3 +1,4 @@
+import wordninja as wn
 # Sets for operators
 operators3 = {'<<=', '>>='}
 operators2 = {
@@ -10,7 +11,7 @@ operators1 = {
 }
 
 
-def tokenize_code_line(line):
+def tokenize_code_line(line: str, subtoken: bool):
     tmp, w = [], []
     i = 0
     while i < len(line):
@@ -45,4 +46,10 @@ def tokenize_code_line(line):
         w = []
     # Filter out irrelevant strings
     res = list(filter(lambda c: c != '', tmp))
-    return list(filter(lambda c: c != ' ', res))
+    res = list(filter(lambda c: c != ' ', res))
+    # split subtoken
+    if (subtoken):
+        res = list()
+        for token in tokenize_code_line(line):
+            res.extend(wn.split(token))
+    return res

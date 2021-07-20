@@ -43,7 +43,7 @@ def train_bpe(config_path: str):
     with open(config.tokens_path, "r") as f:
         for line in tqdm(f, total=count_lines_in_file(config.tokens_path)):
             # tokens = line.split()
-            tokens = tokenize_code_line(line)
+            tokens = tokenize_code_line(line, config.subtoken)
             token_counter.update(tokens)
 
     bpe_tokenizer = Tokenizer(

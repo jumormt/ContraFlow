@@ -1,2 +1,3 @@
 tokenizer_path: "../data/tokenizer.json"
 tokens_path: "../data/tokens.txt"
+subtoken: true
