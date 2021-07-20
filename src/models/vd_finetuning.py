@@ -6,7 +6,7 @@ from src.models.modules.attention import LocalAttention
 import numpy
 from typing import List, Tuple, Optional, Dict
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoders import FlowLSTMEncoder
+from src.models.modules.flow_encoders import FlowHYBRIDEncoder, FlowLSTMEncoder, FlowBERTEncoder
 from torch.optim import Adam, SGD, Adamax, RMSprop
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 import torch.nn.functional as F
@@ -51,8 +51,18 @@ class VulDetectModel(LightningModule):
             self._encoder.load_state_dict(state_dict)
         else:
             print("No pre-trained weights for sequence generating model")
-            self._encoder = FlowLSTMEncoder(config.encoder, vocabulary_size,
-                                            pad_idx)
+            if config.encoder.name == "LSTM":
+                self._encoder = FlowLSTMEncoder(config.encoder,
+                                                vocabulary_size, pad_idx)
+            elif config.encoder.name == "BERT":
+                self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
+            elif config.encoder.name == "HYBRID":
+                self._encoder = FlowHYBRIDEncoder(config.encoder,
+                                                  vocabulary_size, pad_idx)
+            else:
+                raise ValueError(
+                    f"Cant find encoder model: {config.encoder.name}")
+
         # self-attention
         encoder_layers = TransformerEncoderLayer(hidden_size,
                                                  config.nhead,

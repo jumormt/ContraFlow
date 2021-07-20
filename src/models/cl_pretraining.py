@@ -1,6 +1,6 @@
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoders import FlowLSTMEncoder, FlowBERTEncoder
+from src.models.modules.flow_encoders import FlowLSTMEncoder, FlowBERTEncoder, FlowHYBRIDEncoder
 from src.datas.datastructures import ValueFlowBatch
 import torch
 from typing import List, Iterator, Dict
@@ -27,6 +27,9 @@ class FlowCLPretraining(LightningModule):
                                             pad_idx)
         elif config.encoder.name == "BERT":
             self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
+        elif config.encoder.name == "HYBRID":
+            self._encoder = FlowHYBRIDEncoder(config.encoder, vocabulary_size,
+                                              pad_idx)
         else:
             raise ValueError(f"Cant find encoder model: {config.encoder.name}")
 

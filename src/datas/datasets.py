@@ -1,5 +1,4 @@
 import numpy
-from pycparser.ply.yacc import token
 from torch.utils.data import Dataset
 import json
 from tokenizers import Tokenizer
@@ -33,6 +32,8 @@ class ValueFlowDataset(Dataset):
             self.__tokenizer.enable_truncation(
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
+            pass
+        elif config.encoder.name == "HYBRID":
             pass
         else:
             raise ValueError(f"Can't find model: {self.encoder.name}")
@@ -78,6 +79,8 @@ class ValueFlowPairDataset(Dataset):
             self.__tokenizer.enable_truncation(
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
+            pass
+        elif config.encoder.name == "HYBRID":
             pass
         else:
             raise ValueError(f"Can't find model: {self.encoder.name}")
@@ -127,6 +130,8 @@ class MethodSampleDataset(Dataset):
             self.__tokenizer.enable_truncation(
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
+            pass
+        elif config.encoder.name == "HYBRID":
             pass
         else:
             raise ValueError(f"Can't find model: {self.encoder.name}")

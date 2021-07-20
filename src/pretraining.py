@@ -40,6 +40,10 @@ def pretrain(config_path: str):
         tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
         vocab_size = tokenizer.vocab_size
         pad_idx = tokenizer.pad_token_id
+    elif config.encoder.name == "HYBRID":
+        tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
+        vocab_size = tokenizer.vocab_size
+        pad_idx = tokenizer.pad_token_id
     else:
         raise ValueError(f"Can't find encoder: {config.encoder.name}")
 

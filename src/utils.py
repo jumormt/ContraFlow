@@ -1,7 +1,5 @@
 from warnings import filterwarnings
 import subprocess
-from ipython_genutils.py3compat import encode
-from pycparser.ply.yacc import token
 from tokenizers import Tokenizer
 from typing import List, Union
 import numpy
@@ -58,7 +56,7 @@ def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
 
         for i, value in enumerate(values):
             res[:, i] = tokenizer.encode(value).ids
-    elif encoder_name == "BERT":
+    elif encoder_name == "BERT" or encoder_name == "HYBRID":
         res = numpy.full((max_len, len(values)),
                          tokenizer.pad_token_id,
                          dtype=numpy.compat.long)
@@ -87,3 +85,11 @@ def calc_sim_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-8):
     b_norm = b / torch.clamp(b_n, min=eps)
     sim_mt = torch.mm(a_norm, b_norm.transpose(0, 1))
     return sim_mt
+
+
+def segment_sizes_to_slices(sizes: torch.Tensor) -> List:
+    cum_sums = numpy.cumsum(sizes.cpu())
+    start_of_segments = numpy.append([0], cum_sums[:-1])
+    return [
+        slice(start, end) for start, end in zip(start_of_segments, cum_sums)
+    ]
