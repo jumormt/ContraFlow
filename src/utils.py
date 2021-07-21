@@ -5,6 +5,7 @@ from typing import List, Union, Dict
 import numpy
 import torch
 from transformers import RobertaTokenizer
+from src.datas.datastructures import ASTNode, ASTEdge
 
 PAD = "<PAD>"
 UNK = "<UNK>"
@@ -75,7 +76,9 @@ def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
         for i, value in enumerate(values):
             tokens = [tokenizer.cls_token
                       ] + tokenizer.tokenize(value) + [tokenizer.sep_token]
-            res[:, i] = tokenizer.convert_tokens_to_ids(tokens)[:max_len]
+            ids = tokenizer.convert_tokens_to_ids(tokens)
+            less_len = min(len(ids), max_len)
+            res[:less_len, i] = ids[:less_len]
     else:
         raise ValueError(f"Cant find encoder name: {encoder_name}!")
     return res
@@ -145,3 +148,9 @@ def read_csv(csv_file_path: str) -> List[Dict]:
                 instance[hp] = content
             data.append(instance)
         return data
+
+
+def traverse_ast(ast: ASTNode):
+    for child in ast.childs:
+        yield (child, ASTEdge(from_node=ast, to_node=child))
+        traverse_ast(child)

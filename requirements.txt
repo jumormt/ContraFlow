@@ -1,4 +1,4 @@
-torch==1.9.0
+torch==1.9.0+cu11.0
 
 # Code quality
 black==21.6b0
