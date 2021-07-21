@@ -1,4 +1,4 @@
-from src.datas.datastructures import ASTGraph, ASTNode, NodeType
+from src.datas.graph import ASTGraph, ASTNode, NodeType
 from typing import Dict, List, Tuple
 from src.utils import read_csv
 

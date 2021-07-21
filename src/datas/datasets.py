@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import json
 from tokenizers import Tokenizer
 from omegaconf import DictConfig
-from src.datas.datastructures import ASTNode, ASTGraph, NodeType, ValueFlowPair, ValueFlow, MethodSample
+from src.datas.graph import ASTNode, ASTGraph, NodeType, ValueFlowPair, ValueFlow, MethodSample
 from src.utils import strings_to_numpy, PAD, get_ast_path_from_file
 from os.path import exists
 from transformers import RobertaTokenizer

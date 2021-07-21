@@ -90,7 +90,8 @@ class FlowCLPretraining(LightningModule):
     def training_step(self, batch: ValueFlowBatch,
                       batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements,
+                          batch.statements_per_label)
         loss = NCE_loss(embeddings, batch.features)
         self.log("train/loss", loss, prog_bar=True, logger=False)
         return loss
@@ -98,13 +99,15 @@ class FlowCLPretraining(LightningModule):
     def validation_step(self, batch: ValueFlowBatch,
                         batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements,
+                          batch.statements_per_label)
         return NCE_loss(embeddings, batch.features)
 
     def test_step(self, batch: ValueFlowBatch,
                   batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements,
+                          batch.statements_per_label)
         return NCE_loss(embeddings, batch.features)
 
     # ========== EPOCH END ==========

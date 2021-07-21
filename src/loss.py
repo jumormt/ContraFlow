@@ -65,6 +65,7 @@ def NCE_pair_loss(embeddings1: torch.Tensor,
 
 def NCE_loss(embeddings: torch.Tensor,
              features: torch.Tensor,
+             device: torch.device,
              thres: float = 0.5) -> torch.Tensor:
     """
     sum_i(sim(flow_i, [flow_i+])/sim(flow_i, [flow_i+, flow_i-])
@@ -81,7 +82,7 @@ def NCE_loss(embeddings: torch.Tensor,
     # [N; N]
     sim_matrix = calc_sim_matrix(embeddings, embeddings)
     sim_slice = (calc_sim_matrix(features, features) -
-                 torch.eye(n_sample)) > thres
+                 torch.eye(n_sample, device=device)) > thres
     loss = 0
     for i in range(n_sample):
         positive_exp_sim_sum = torch.exp(sim_matrix[i][sim_slice[i]]).sum()

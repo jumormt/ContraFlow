@@ -1,10 +1,9 @@
 from torch import nn
 from omegaconf import DictConfig
 import torch
-from datas.datastructures import MethodSampleBatch
+from src.datas.datastructures import MethodSampleBatch
 from src.models.modules.attention import LocalAttention
-import numpy
-from typing import List, Tuple, Optional, Dict
+from typing import Optional, Dict
 from pytorch_lightning import LightningModule
 from src.models.modules.flow_encoders import FlowHYBRIDEncoder, FlowLSTMEncoder, FlowBERTEncoder, FlowGNNEncoder
 from torch.optim import Adam, SGD, Adamax, RMSprop
@@ -13,7 +12,7 @@ import torch.nn.functional as F
 from src.metrics import Statistic
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch_geometric.data import Batch
-from src.utils import segment_sizes_to_slices
+from src.utils import cut_lower_embeddings
 
 
 class VulDetectModel(LightningModule):
@@ -113,11 +112,11 @@ class VulDetectModel(LightningModule):
         # [total n_flow; max flow n_statements]
         flow_attn_weights, _ = self._encoder.get_flow_attention_weights()
         # [n_method; max method n_flow; max flow n_statements]
-        self.__value_flow_attn_weights, _ = self._cut_value_flow_embeddings(
+        self.__value_flow_attn_weights, _ = cut_lower_embeddings(
             flow_attn_weights, value_flow_per_label)
 
         # [n_method; max method n_flow; flow_hidden_size], [n_method; max method n_flow]
-        method_flows_embeddings, method_flows_attn_mask = self._cut_value_flow_embeddings(
+        method_flows_embeddings, method_flows_attn_mask = cut_lower_embeddings(
             value_flow_embeddings, value_flow_per_label)
         # [n_method; max method n_flow; flow_hidden_size]
         method_flows_embeddings = self.__transformer_encoder(
@@ -143,37 +142,6 @@ class VulDetectModel(LightningModule):
             : [n_method, max n_flow; max flow n_statements] the importance of statements on each value flow
         """
         return self.__method_attn_weights, self.__value_flow_attn_weights
-
-    def _cut_value_flow_embeddings(
-            self,
-            value_flow_embeddings: torch.Tensor,
-            value_flow_per_label: torch.Tensor,
-            mask_value: float = -1e9) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Cut value flow embeddings into method embeddings
-
-        Args:
-            value_flow_embeddings (Tensor): [total n_flow; units]
-            value_flow_per_label (Tensor): [n_method]
-            mask_value (float): -inf
-
-        Returns: [n_method; max method n_flow; units], [n_method; max method n_flow]
-        """
-        batch_size = len(value_flow_per_label)
-        max_context_len = max(value_flow_per_label)
-
-        method_flows_embeddings = value_flow_embeddings.new_zeros(
-            (batch_size, max_context_len, value_flow_embeddings.shape[-1]))
-        method_flows_attn_mask = value_flow_embeddings.new_zeros(
-            (batch_size, max_context_len))
-
-        statments_slices = segment_sizes_to_slices(value_flow_per_label)
-        for i, (cur_slice, cur_size) in enumerate(
-                zip(statments_slices, value_flow_per_label)):
-            method_flows_embeddings[
-                i, :cur_size] = value_flow_embeddings[cur_slice]
-            method_flows_attn_mask[i, cur_size:] = mask_value
-
-        return method_flows_embeddings, method_flows_attn_mask
 
     def _get_optimizer(self, name: str) -> torch.nn.Module:
         if name in self._optimizers:

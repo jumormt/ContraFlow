@@ -1,7 +1,7 @@
 from warnings import filterwarnings
 import subprocess
 from tokenizers import Tokenizer
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Tuple
 import numpy
 import torch
 from transformers import RobertaTokenizer
@@ -164,3 +164,32 @@ def get_ast_path_from_file(file_path: str):
     node_path = os.path.join(root, f"graphs/{file_name}/nodes.csv")
     edge_path = os.path.join(root, f"graphs/{file_name}/edges.csv")
     return node_path, edge_path
+
+
+def cut_lower_embeddings(
+        lower_embeddings: torch.Tensor,
+        lower_per_upper: torch.Tensor,
+        mask_value: float = -1e9) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Cut lower embeddings into upper embeddings
+
+        Args:
+            lower_embeddings (Tensor): [total n_lower; units]
+            statements_per_label (Tensor): [n_upper]
+            mask_value (float): -inf
+
+        Returns: [n_upper; max n_lower; units], [n_upper; max n_lower]
+        """
+    batch_size = len(lower_per_upper)
+    max_context_len = max(lower_per_upper)
+
+    upper_embeddings = lower_embeddings.new_zeros(
+        (batch_size, max_context_len, lower_embeddings.shape[-1]))
+    upper_attn_mask = lower_embeddings.new_zeros((batch_size, max_context_len))
+
+    statments_slices = segment_sizes_to_slices(lower_per_upper)
+    for i, (cur_slice,
+            cur_size) in enumerate(zip(statments_slices, lower_per_upper)):
+        upper_embeddings[i, :cur_size] = lower_embeddings[cur_slice]
+        upper_attn_mask[i, cur_size:] = mask_value
+
+    return upper_embeddings, upper_attn_mask
