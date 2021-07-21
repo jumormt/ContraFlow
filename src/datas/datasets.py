@@ -3,11 +3,12 @@ from torch.utils.data import Dataset
 import json
 from tokenizers import Tokenizer
 from omegaconf import DictConfig
-from src.datas.datastructures import ValueFlowPair, ValueFlow, MethodSample
-from src.utils import strings_to_numpy, PAD
+from src.datas.datastructures import ASTNode, ASTGraph, NodeType, ValueFlowPair, ValueFlow, MethodSample
+from src.utils import strings_to_numpy, PAD, get_ast_path_from_file
 from os.path import exists
 from transformers import RobertaTokenizer
 from typing import Union
+from src.joern.ast_generator import build_ln_to_ast
 
 
 class ValueFlowDataset(Dataset):
@@ -43,10 +44,29 @@ class ValueFlowDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlow:
         value_flow = self.__value_flows[index]
-        with open(value_flow["file"], encoding="utf-8", errors="ignore") as f:
+        file_path = value_flow["file"]
+        nodes_path, edges_path = get_ast_path_from_file(file_path)
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
+        ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
         value_flow_lines = value_flow["flow"]
-        value_flow_raw = [file_content[line - 1] for line in value_flow_lines]
+        value_flow_raw = []
+        ast_graphs = []
+        for line in value_flow_lines:
+            line_raw = file_content[line - 1].strip()
+            value_flow_raw.append(line_raw)
+            if line in ln_to_ast_graph:
+                ast_graphs.append(ln_to_ast_graph[line].to_torch(
+                    self.__tokenizer, self.__config.max_token_parts))
+            else:
+                ast_graphs.append(
+                    ASTGraph.from_root_ast(
+                        ASTNode(content=line_raw,
+                                node_type=NodeType.PLAIN,
+                                childs=[])).to_torch(
+                                    self.__tokenizer,
+                                    self.__config.max_token_parts))
+
         feature = value_flow["feature"]
         statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
                                       self.__config.encoder.name,
@@ -54,7 +74,8 @@ class ValueFlowDataset(Dataset):
 
         return ValueFlow(statements=statements,
                          n_statements=len(value_flow_raw),
-                         feature=numpy.array(feature))
+                         feature=numpy.array(feature),
+                         ast_graphs=ast_graphs)
 
     def get_n_samples(self):
         return self.__n_samples
@@ -93,24 +114,58 @@ class ValueFlowPairDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlowPair:
         pair = self.__pairs[index]
-        with open(pair[0]["file"], encoding="utf-8", errors="ignore") as f:
+        file_path1 = pair[0]["file"]
+        nodes_path1, edges_path1 = get_ast_path_from_file(file_path1)
+        with open(file_path1, encoding="utf-8", errors="ignore") as f:
             file_content1 = f.readlines()
-        with open(pair[1]["file"], encoding="utf-8", errors="ignore") as f:
-            file_content2 = f.readlines()
-
+        ln_to_ast_graph1 = build_ln_to_ast(file_path1, nodes_path1,
+                                           edges_path1)
         value_flow_lines1 = pair[0]["flow"]
-        value_flow_lines2 = pair[1]["flow"]
-        value_flow_raw1 = [
-            file_content1[line - 1] for line in value_flow_lines1
-        ]
-        value_flow_raw2 = [
-            file_content2[line - 1] for line in value_flow_lines2
-        ]
+        value_flow_raw1 = []
+        ast_graphs1 = []
+        for line in value_flow_lines1:
+            line_raw = file_content1[line - 1].strip()
+            value_flow_raw1.append(line_raw)
+            if line in ln_to_ast_graph1:
+                ast_graphs1.append(ln_to_ast_graph1[line].to_torch(
+                    self.__tokenizer, self.__config.max_token_parts))
+            else:
+                ast_graphs1.append(
+                    ASTGraph.from_root_ast(
+                        ASTNode(content=line_raw,
+                                node_type=NodeType.PLAIN,
+                                childs=[])).to_torch(
+                                    self.__tokenizer,
+                                    self.__config.max_token_parts))
         statements1 = strings_to_numpy(value_flow_raw1, self.__tokenizer,
                                        self.__config.encoder.name,
                                        self.__config.max_token_parts)
         value_flow1 = ValueFlow(statements=statements1,
                                 n_statements=len(value_flow_raw1))
+
+        file_path2 = pair[1]["file"]
+        nodes_path2, edges_path2 = get_ast_path_from_file(file_path2)
+        with open(file_path2, encoding="utf-8", errors="ignore") as f:
+            file_content2 = f.readlines()
+        ln_to_ast_graph2 = build_ln_to_ast(file_path2, nodes_path2,
+                                           edges_path2)
+        value_flow_lines2 = pair[1]["flow"]
+        value_flow_raw2 = []
+        ast_graphs2 = []
+        for line in value_flow_lines2:
+            line_raw = file_content2[line - 1].strip()
+            value_flow_raw2.append(line_raw)
+            if line in ln_to_ast_graph2:
+                ast_graphs2.append(ln_to_ast_graph2[line].to_torch(
+                    self.__tokenizer, self.__config.max_token_parts))
+            else:
+                ast_graphs2.append(
+                    ASTGraph.from_root_ast(
+                        ASTNode(content=line_raw,
+                                node_type=NodeType.PLAIN,
+                                childs=[])).to_torch(
+                                    self.__tokenizer,
+                                    self.__config.max_token_parts))
         statements2 = strings_to_numpy(value_flow_raw2, self.__tokenizer,
                                        self.__config.encoder.name,
                                        self.__config.max_token_parts)
@@ -162,20 +217,40 @@ class MethodSampleDataset(Dataset):
         numpy.random.shuffle(flow_indexes)
 
         value_flows = list()
-        with open(method["file"], encoding="utf-8", errors="ignore") as f:
+        file_path = method["file"]
+        nodes_path, edges_path = get_ast_path_from_file(file_path)
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
+        ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
+
         for i in flow_indexes:
             value_flow_lines = method["flows"][i]
+            value_flow_raw = []
+            ast_graphs = []
+            for line in value_flow_lines:
+                line_raw = file_content[line - 1].strip()
+                value_flow_raw.append(line_raw)
+                if line in ln_to_ast_graph:
+                    ast_graphs.append(ln_to_ast_graph[line].to_torch(
+                        self.__tokenizer, self.__config.max_token_parts))
+                else:
+                    ast_graphs.append(
+                        ASTGraph.from_root_ast(
+                            ASTNode(content=line_raw,
+                                    node_type=NodeType.PLAIN,
+                                    childs=[])).to_torch(
+                                        self.__tokenizer,
+                                        self.__config.max_token_parts))
             value_flow_raw = [
                 file_content[line - 1].strip() for line in value_flow_lines
             ]
             statements = strings_to_numpy(
                 value_flow_raw, self.__tokenizer, self.__config.encoder.name,
                 self.__config.encoder.max_token_parts)
-            value_flows.append(
-                ValueFlow(statements=statements,
-                          n_statements=len(value_flow_raw),
-                          statements_idx=value_flow_lines))
+            value_flows.append(ValueFlow(statements=statements,
+                                         n_statements=len(value_flow_raw),
+                                         statements_idx=value_flow_lines),
+                               ast_graphs=ast_graphs)
 
         return MethodSample(value_flows=value_flows,
                             label=method["label"],

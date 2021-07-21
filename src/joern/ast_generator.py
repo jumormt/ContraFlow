@@ -1,4 +1,4 @@
-from src.datas.datastructures import Statement, ASTNode, NodeType
+from src.datas.datastructures import ASTGraph, ASTNode, NodeType
 from typing import Dict, List, Tuple
 from src.utils import read_csv
 
@@ -42,8 +42,8 @@ def add_ast_childs(edges: List[Dict],
     """
     for edge in edges:
         if (edge["type"] == "IS_AST_PARENT"):
-            if edge["start"] in node_info:
-                if "childs" in node_info[edge["start"]]:
+            if int(edge["start"]) in node_info:
+                if "childs" in node_info[int(edge["start"])]:
                     node_info[int(edge["start"])]["childs"].append(
                         int(edge["end"]))
                 else:
@@ -70,8 +70,8 @@ def construct_ast(node_info: Dict, nodeid: int) -> ASTNode:
     return astnode
 
 
-def build_ln_to_statement(file_path: str, nodes_path: str,
-                          edges_path: str) -> Dict[int, Statement]:
+def build_ln_to_ast(file_path: str, nodes_path: str,
+                    edges_path: str) -> Dict[int, ASTGraph]:
     """
     
     Args:
@@ -89,7 +89,7 @@ def build_ln_to_statement(file_path: str, nodes_path: str,
     with open(file_path, encoding="utf-8") as f:
         file_content = f.readlines()
 
-    ln_to_statement = dict()
+    ln_to_ast_graph = dict()
     for ln in ln_to_nodeid:
 
         type_root = node_info[ln_to_nodeid[ln][0]]["type"]
@@ -113,13 +113,13 @@ def build_ln_to_statement(file_path: str, nodes_path: str,
         else:
             astnode = construct_ast(node_info, ln_to_nodeid[ln][0])
 
-        statement = Statement(file_path=file_path, line_number=ln, ast=astnode)
-        ln_to_statement[ln] = statement
-    return ln_to_statement
+        ast_graph = ASTGraph.from_root_ast(astnode)
+        ln_to_ast_graph[ln] = ast_graph
+    return ln_to_ast_graph
 
 
 if __name__ == "__main__":
     file_path = "/home/chengxiao/project/vul_detect/joern_slicer/main.cpp"
     nodes_path = "/home/chengxiao/project/vul_detect/joern_slicer/output/main.cpp/nodes.csv"
     edges_path = "/home/chengxiao/project/vul_detect/joern_slicer/output/main.cpp/edges.csv"
-    ln_to_statements = build_ln_to_statement(file_path, nodes_path, edges_path)
+    ln_to_statements = build_ln_to_ast(file_path, nodes_path, edges_path)

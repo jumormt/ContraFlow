@@ -5,7 +5,7 @@ from typing import List, Union, Dict
 import numpy
 import torch
 from transformers import RobertaTokenizer
-from src.datas.datastructures import ASTNode, ASTEdge
+import os
 
 PAD = "<PAD>"
 UNK = "<UNK>"
@@ -150,7 +150,17 @@ def read_csv(csv_file_path: str) -> List[Dict]:
         return data
 
 
-def traverse_ast(ast: ASTNode):
-    for child in ast.childs:
-        yield (child, ASTEdge(from_node=ast, to_node=child))
-        traverse_ast(child)
+def get_ast_path_from_file(file_path: str):
+    """
+
+    Args:
+        file_path (str): e.g., dataset/project/commitid/files/test.cpp
+
+    get node.csv and edge.csv from source file path
+    """
+    tmp, file_name = os.path.split(file_path)
+    tmp, _ = os.path.split(tmp)
+    root, _ = os.path.split(tmp)
+    node_path = os.path.join(root, f"graphs/{file_name}/nodes.csv")
+    edge_path = os.path.join(root, f"graphs/{file_name}/edges.csv")
+    return node_path, edge_path

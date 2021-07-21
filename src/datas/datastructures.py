@@ -1,165 +1,12 @@
 from dataclasses import dataclass
 from typing import Set, Dict, List
-from torch_geometric.data import Data
+from torch_geometric.data import Data, Batch
 
 import numpy
 import torch
 from enum import Enum
 from pyvis.network import Network
-from src.utils import traverse_ast
 from transformers import RobertaTokenizer
-
-
-@dataclass
-class ValueFlow:
-    statements: numpy.ndarray  # [seq len; n_statements]
-    n_statements: int
-    statements_idx: List[int] = None
-    feature: numpy.ndarray = None  # [feature dim,]
-
-
-class ValueFlowBatch:
-    def __init__(self, value_flows: List[ValueFlow]):
-        # [batch size]
-        self.statements_per_label = torch.tensor(
-            [value_flow.n_statements for value_flow in value_flows],
-            dtype=torch.long)
-
-        # [seq len; total n_statements]
-        self.statements = torch.from_numpy(
-            numpy.hstack([value_flow.statements
-                          for value_flow in value_flows]))
-
-        # [batch size, feature dim]
-        self.features = numpy.full(
-            (len(value_flows), value_flows[0].feature.shape[0]),
-            0,
-            dtype=numpy.long)
-
-        for i, value_flow in enumerate(value_flows):
-            self.features[i] = value_flow.feature
-        self.features = torch.from_numpy(self.features)
-
-    def __len__(self):
-        return len(self.statements_per_label)
-
-    def pin_memory(self) -> "ValueFlowBatch":
-        self.statements_per_label = self.statements_per_label.pin_memory()
-        self.statements = self.statements.pin_memory()
-        self.features = self.features.pin_memory()
-        return self
-
-    def move_to_device(self, device: torch.device):
-        self.statements_per_label = self.statements_per_label.to(device)
-        self.statements = self.statements.to(device)
-        self.features = self.features.to(device)
-
-
-@dataclass
-class ValueFlowPair:
-    value_flow_1: ValueFlow
-    value_flow_2: ValueFlow
-
-
-class ValueFlowPairBatch:
-    def __init__(self, value_flow_pairs: List[ValueFlowPair]):
-        # [batch size]
-        self.statements_per_label1 = torch.tensor(
-            [_pair.value_flow_1.n_statements for _pair in value_flow_pairs],
-            dtype=torch.long)
-        self.statements_per_label2 = torch.tensor(
-            [_pair.value_flow_2.n_statements for _pair in value_flow_pairs],
-            dtype=torch.long)
-
-        # [seq len; total n_statements]
-        self.statements1 = torch.from_numpy(
-            numpy.hstack(
-                [_pair.value_flow_1.statements for _pair in value_flow_pairs]))
-        self.statements2 = torch.from_numpy(
-            numpy.hstack(
-                [_pair.value_flow_2.statements for _pair in value_flow_pairs]))
-
-    def __len__(self):
-        return len(self.statements_per_label1)
-
-    def pin_memory(self) -> "ValueFlowPairBatch":
-        self.statements_per_label1 = self.statements_per_label1.pin_memory()
-        self.statements_per_label2 = self.statements_per_label2.pin_memory()
-        self.statements1 = self.statements1.pin_memory()
-        self.statements2 = self.statements2.pin_memory()
-        return self
-
-    def move_to_device(self, device: torch.device):
-        self.statements_per_label1 = self.statements_per_label1.to(device)
-        self.statements_per_label2 = self.statements_per_label1.to(device)
-        self.statements1 = self.statements1.to(device)
-        self.statements2 = self.statements2.to(device)
-
-
-@dataclass
-class MethodSample:
-    value_flows: List[ValueFlow]
-    label: int
-    flaws: List[int]
-
-
-class MethodSampleBatch:
-    def __init__(self, method_samples: List[MethodSample]):
-        # [batch size]
-        self.value_flow_per_label = torch.tensor([
-            len(method_sample.value_flows) for method_sample in method_samples
-        ],
-                                                 dtype=torch.long)
-        self.labels = torch.tensor(
-            [method_sample.label for method_sample in method_samples],
-            dtype=torch.long)
-        self.flaws: List[List[int]] = [
-            method_sample.flaws for method_sample in method_samples
-        ]
-
-        self.statements_per_value_flow = list()
-        self.statements = list()
-        self.statements_idxes = list()
-
-        for method_sample in method_samples:
-            self.statements_per_value_flow.extend([
-                value_flow.n_statements
-                for value_flow in method_sample.value_flows
-            ])
-            self.statements.append(
-                # [seq len; method n_statements]
-                torch.from_numpy(
-                    numpy.hstack([
-                        value_flow.statements
-                        for value_flow in method_sample.value_flows
-                    ])))
-            self.statements_idxes.append([
-                value_flow.statements_idx
-                for value_flow in method_sample.value_flows
-            ])
-        # [seq len; total n_statements]
-        self.statements = torch.cat(self.statements, dim=1)
-        # [total n_flow]
-        self.statements_per_value_flow = torch.tensor(
-            self.statements_per_value_flow, dtype=torch.long)
-
-    def __len__(self):
-        return len(self.value_flow_per_label)
-
-    def pin_memory(self) -> "MethodSampleBatch":
-        self.value_flow_per_label = self.value_flow_per_label.pin_memory()
-        self.statements_per_value_flow = self.statements_per_value_flow.pin_memory(
-        )
-        self.statements = self.statements.pin_memory()
-        self.labels = self.labels.pin_memory()
-        return self
-
-    def move_to_device(self, device: torch.device):
-        self.value_flow_per_label = self.value_flow_per_label.to(device)
-        self.statements_per_value_flow = self.statements_per_value_flow.to(
-            device)
-        self.statements = self.statements.to(device)
-        self.labels = self.labels.to(device)
 
 
 class NodeType(Enum):
@@ -212,6 +59,8 @@ class NodeType(Enum):
     RelationalExpression = 42
     CallExpression = 43
 
+    PLAIN = 44
+
 
 @dataclass
 class ASTNode:
@@ -226,13 +75,6 @@ class ASTEdge:
     to_node: ASTNode
 
 
-@dataclass
-class Statement:
-    file_path: str
-    line_number: int
-    ast: ASTNode
-
-
 class ASTGraph:
     def __init__(self, nodes: List[ASTNode], edges: List[ASTEdge]):
         self.__nodes = nodes
@@ -240,8 +82,12 @@ class ASTGraph:
 
     @staticmethod
     def from_root_ast(ast: ASTNode) -> "ASTGraph":
-        nodes, edges = zip(*list(traverse_ast(ast)))
-        nodes, edges = list(nodes), list(edges)
+        if len(ast.childs) == 0:
+            nodes = []
+            edges = []
+        else:
+            nodes, edges = zip(*list(traverse_ast(ast)))
+            nodes, edges = list(nodes), list(edges)
         nodes.append(ast)
         return ASTGraph(nodes, edges)
 
@@ -277,8 +123,8 @@ class ASTGraph:
         node_type = torch.tensor([n.node_type.value for n in self.nodes],
                                  dtype=torch.long)
         edge_index = torch.tensor(list(
-            zip(*[[self.node.index(e.from_node),
-                   self.node.index(e.to_node)] for e in self.edges])),
+            zip(*[[self.nodes.index(e.from_node),
+                   self.nodes.index(e.to_node)] for e in self.edges])),
                                   dtype=torch.long)
 
         # save token to `x` so Data can calculate properties like `num_nodes`
@@ -302,16 +148,199 @@ class ASTGraph:
                       notebook=notebook)
         net.barnes_hut(gravity=-10000, overlap=1, spring_length=1)
 
-        for node in self.nodes:
-            net.add_node(node.id,
-                         label=node.token,
-                         group=node.type.value,
-                         title=f"id: {node.id}\ntoken: {node.token}")
+        for idx, node in enumerate(self.nodes):
+            net.add_node(
+                idx,
+                label=node.content,
+                group=node.node_type.value,
+                title=f"type:{node.node_type.name}\ntoken: {node.content}")
 
         for edge in self.edges:
-            net.add_edge(edge.from_node.id,
-                         edge.to_node.id,
-                         label=edge.type.name,
-                         group=edge.type.value)
+            net.add_edge(self.nodes.index(edge.from_node),
+                         self.nodes.index(edge.to_node),
+                         label=None,
+                         group=None)
 
         return net
+
+
+def traverse_ast(ast: ASTNode):
+    for child in ast.childs:
+        yield (child, ASTEdge(from_node=ast, to_node=child))
+        yield from traverse_ast(child)
+
+
+@dataclass
+class ValueFlow:
+    statements: numpy.ndarray  # [seq len; n_statements]
+    n_statements: int
+    ast_graphs: List[Data] = None
+    statements_idx: List[int] = None
+    feature: numpy.ndarray = None  # [feature dim,]
+
+
+class ValueFlowBatch:
+    def __init__(self, value_flows: List[ValueFlow]):
+        # [batch size]
+        self.statements_per_label = torch.tensor(
+            [value_flow.n_statements for value_flow in value_flows],
+            dtype=torch.long)
+
+        # [seq len; total n_statements]
+        self.statements = torch.from_numpy(
+            numpy.hstack([value_flow.statements
+                          for value_flow in value_flows]))
+
+        # [batch size, feature dim]
+        self.features = numpy.full(
+            (len(value_flows), value_flows[0].feature.shape[0]),
+            0,
+            dtype=numpy.long)
+        self.ast_graphs = []
+        for i, value_flow in enumerate(value_flows):
+            self.features[i] = value_flow.feature
+            self.ast_graphs.extend(value_flow.ast_graphs)
+        self.features = torch.from_numpy(self.features)
+        self.ast_graphs = Batch.from_data_list(self.ast_graphs)
+
+    def __len__(self):
+        return len(self.statements_per_label)
+
+    def pin_memory(self) -> "ValueFlowBatch":
+        self.statements_per_label = self.statements_per_label.pin_memory()
+        self.statements = self.statements.pin_memory()
+        self.features = self.features.pin_memory()
+        self.ast_graphs = self.ast_graphs.pin_memory()
+        return self
+
+    def move_to_device(self, device: torch.device):
+        self.statements_per_label = self.statements_per_label.to(device)
+        self.statements = self.statements.to(device)
+        self.features = self.features.to(device)
+        self.ast_graphs = self.ast_graphs.to(device)
+
+
+@dataclass
+class ValueFlowPair:
+    value_flow_1: ValueFlow
+    value_flow_2: ValueFlow
+
+
+class ValueFlowPairBatch:
+    def __init__(self, value_flow_pairs: List[ValueFlowPair]):
+        # [batch size]
+        self.statements_per_label1 = torch.tensor(
+            [_pair.value_flow_1.n_statements for _pair in value_flow_pairs],
+            dtype=torch.long)
+        self.statements_per_label2 = torch.tensor(
+            [_pair.value_flow_2.n_statements for _pair in value_flow_pairs],
+            dtype=torch.long)
+
+        # [seq len; total n_statements]
+        self.statements1 = torch.from_numpy(
+            numpy.hstack(
+                [_pair.value_flow_1.statements for _pair in value_flow_pairs]))
+        self.statements2 = torch.from_numpy(
+            numpy.hstack(
+                [_pair.value_flow_2.statements for _pair in value_flow_pairs]))
+        
+        self.ast_graphs1 = []
+        self.ast_graphs2 = []
+        for i, value_flow_pair in enumerate(value_flow_pairs):
+            self.ast_graphs1.extend(value_flow_pair.value_flow_1.ast_graphs)
+            self.ast_graphs2.extend(value_flow_pair.value_flow_2.ast_graphs)
+        self.features = torch.from_numpy(self.features)
+        self.ast_graphs1 = Batch.from_data_list(self.ast_graphs1)
+        self.ast_graphs2 = Batch.from_data_list(self.ast_graphs2)
+
+    def __len__(self):
+        return len(self.statements_per_label1)
+
+    def pin_memory(self) -> "ValueFlowPairBatch":
+        self.statements_per_label1 = self.statements_per_label1.pin_memory()
+        self.statements_per_label2 = self.statements_per_label2.pin_memory()
+        self.statements1 = self.statements1.pin_memory()
+        self.statements2 = self.statements2.pin_memory()
+        self.ast_graphs1 = self.ast_graphs1.pin_memory()
+        self.ast_graphs2 = self.ast_graphs2.pin_memory()
+        return self
+
+    def move_to_device(self, device: torch.device):
+        self.statements_per_label1 = self.statements_per_label1.to(device)
+        self.statements_per_label2 = self.statements_per_label1.to(device)
+        self.statements1 = self.statements1.to(device)
+        self.statements2 = self.statements2.to(device)
+        self.ast_graphs1 = self.ast_graphs1.to(device)
+        self.ast_graphs2 = self.ast_graphs2.to(device)
+
+
+@dataclass
+class MethodSample:
+    value_flows: List[ValueFlow]
+    label: int
+    flaws: List[int]
+
+
+class MethodSampleBatch:
+    def __init__(self, method_samples: List[MethodSample]):
+        # [batch size]
+        self.value_flow_per_label = torch.tensor([
+            len(method_sample.value_flows) for method_sample in method_samples
+        ],
+                                                 dtype=torch.long)
+        self.labels = torch.tensor(
+            [method_sample.label for method_sample in method_samples],
+            dtype=torch.long)
+        self.flaws: List[List[int]] = [
+            method_sample.flaws for method_sample in method_samples
+        ]
+
+        self.statements_per_value_flow = list()
+        self.statements = list()
+        self.statements_idxes = list()
+        self.ast_graphs = []
+
+        for method_sample in method_samples:
+            self.statements_per_value_flow.extend([
+                value_flow.n_statements
+                for value_flow in method_sample.value_flows
+            ])
+            self.statements.append(
+                # [seq len; method n_statements]
+                torch.from_numpy(
+                    numpy.hstack([
+                        value_flow.statements
+                        for value_flow in method_sample.value_flows
+                    ])))
+            self.statements_idxes.append([
+                value_flow.statements_idx
+                for value_flow in method_sample.value_flows
+            ])
+            for value_flow in method_sample.value_flows:
+                self.ast_graphs.extend(value_flow.ast_graphs)
+        # [seq len; total n_statements]
+        self.statements = torch.cat(self.statements, dim=1)
+        # [total n_flow]
+        self.statements_per_value_flow = torch.tensor(
+            self.statements_per_value_flow, dtype=torch.long)
+        self.ast_graphs = Batch.from_data_list(self.ast_graphs)
+
+    def __len__(self):
+        return len(self.value_flow_per_label)
+
+    def pin_memory(self) -> "MethodSampleBatch":
+        self.value_flow_per_label = self.value_flow_per_label.pin_memory()
+        self.statements_per_value_flow = self.statements_per_value_flow.pin_memory(
+        )
+        self.statements = self.statements.pin_memory()
+        self.labels = self.labels.pin_memory()
+        self.ast_graphs = self.ast_graphs.pin_memory()
+        return self
+
+    def move_to_device(self, device: torch.device):
+        self.value_flow_per_label = self.value_flow_per_label.to(device)
+        self.statements_per_value_flow = self.statements_per_value_flow.to(
+            device)
+        self.statements = self.statements.to(device)
+        self.labels = self.labels.to(device)
+        self.ast_graphs = self.ast_graphs.to(device)
