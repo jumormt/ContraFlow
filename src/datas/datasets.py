@@ -34,6 +34,8 @@ class ValueFlowDataset(Dataset):
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
             pass
+        elif config.encoder.name == "GNN":
+            pass
         elif config.encoder.name == "HYBRID":
             pass
         else:
@@ -103,6 +105,8 @@ class ValueFlowPairDataset(Dataset):
             self.__tokenizer.enable_truncation(
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
+            pass
+        elif config.encoder.name == "GNN":
             pass
         elif config.encoder.name == "HYBRID":
             pass
@@ -200,6 +204,8 @@ class MethodSampleDataset(Dataset):
             self.__tokenizer.enable_truncation(
                 max_length=config.max_token_parts)
         elif config.encoder.name == "BERT":
+            pass
+        elif config.encoder.name == "GNN":
             pass
         elif config.encoder.name == "HYBRID":
             pass

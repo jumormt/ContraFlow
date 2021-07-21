@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Set, Dict, List
+from typing import List, Optional
 from torch_geometric.data import Data, Batch
 
 import numpy
@@ -174,9 +174,9 @@ def traverse_ast(ast: ASTNode):
 class ValueFlow:
     statements: numpy.ndarray  # [seq len; n_statements]
     n_statements: int
-    ast_graphs: List[Data] = None
-    statements_idx: List[int] = None
-    feature: numpy.ndarray = None  # [feature dim,]
+    ast_graphs: List[Data]
+    statements_idx: Optional[List[int]] = None
+    feature: Optional[numpy.ndarray] = None  # [feature dim,]
 
 
 class ValueFlowBatch:
@@ -243,7 +243,7 @@ class ValueFlowPairBatch:
         self.statements2 = torch.from_numpy(
             numpy.hstack(
                 [_pair.value_flow_2.statements for _pair in value_flow_pairs]))
-        
+
         self.ast_graphs1 = []
         self.ast_graphs2 = []
         for i, value_flow_pair in enumerate(value_flow_pairs):

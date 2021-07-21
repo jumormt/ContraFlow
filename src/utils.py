@@ -69,7 +69,7 @@ def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
 
         for i, value in enumerate(values):
             res[:, i] = tokenizer.encode(value).ids
-    elif encoder_name == "BERT" or encoder_name == "HYBRID":
+    elif encoder_name in ["BERT", "GNN", "HYBRID"]:
         res = numpy.full((max_len, len(values)),
                          tokenizer.pad_token_id,
                          dtype=numpy.compat.long)

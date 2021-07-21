@@ -1,6 +1,6 @@
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoders import FlowLSTMEncoder, FlowBERTEncoder, FlowHYBRIDEncoder
+from src.models.modules.flow_encoders import FlowGNNEncoder, FlowLSTMEncoder, FlowBERTEncoder, FlowHYBRIDEncoder
 from src.datas.datastructures import ValueFlowBatch
 import torch
 from typing import List, Iterator, Dict
@@ -8,6 +8,7 @@ from torch.nn import Parameter
 from torch.optim import Adam, SGD, Adamax, RMSprop
 from src.loss import NCE_loss
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
+from torch_geometric.data import Batch
 
 
 class FlowCLPretraining(LightningModule):
@@ -27,13 +28,16 @@ class FlowCLPretraining(LightningModule):
                                             pad_idx)
         elif config.encoder.name == "BERT":
             self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
+        elif config.encoder.name == "GNN":
+            self._encoder = FlowGNNEncoder(config.encoder, vocabulary_size,
+                                           pad_idx)
         elif config.encoder.name == "HYBRID":
             self._encoder = FlowHYBRIDEncoder(config.encoder, vocabulary_size,
                                               pad_idx)
         else:
             raise ValueError(f"Cant find encoder model: {config.encoder.name}")
 
-    def forward(self, statements: torch.Tensor,
+    def forward(self, batch: Batch, statements: torch.Tensor,
                 statements_per_label: torch.Tensor) -> torch.Tensor:
         """
 
@@ -43,7 +47,12 @@ class FlowCLPretraining(LightningModule):
 
         Returns: flow_embedding: [n_flow; flow_hidden_size]
         """
-        return self._encoder(statements, statements_per_label)
+        if self.__config.encoder.name in ["LSTM", "BERT"]:
+            return self._encoder(statements, statements_per_label)
+        elif self.__config.encoder.name == "GNN":
+            return self._encoder(batch, statements_per_label)
+        elif self.__config.encoder.name == "HYBRID":
+            return self._encoder(batch, statements, statements_per_label)
 
     def _get_parameters(self) -> List[Iterator[Parameter]]:
         return [self._encoder.parameters()]
@@ -81,7 +90,7 @@ class FlowCLPretraining(LightningModule):
     def training_step(self, batch: ValueFlowBatch,
                       batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
         loss = NCE_loss(embeddings, batch.features)
         self.log("train/loss", loss, prog_bar=True, logger=False)
         return loss
@@ -89,13 +98,13 @@ class FlowCLPretraining(LightningModule):
     def validation_step(self, batch: ValueFlowBatch,
                         batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
         return NCE_loss(embeddings, batch.features)
 
     def test_step(self, batch: ValueFlowBatch,
                   batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
-        embeddings = self(batch.statements, batch.statements_per_label)
+        embeddings = self(batch.ast_graphs, batch.statements, batch.statements_per_label)
         return NCE_loss(embeddings, batch.features)
 
     # ========== EPOCH END ==========

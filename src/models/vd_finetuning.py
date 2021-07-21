@@ -6,12 +6,14 @@ from src.models.modules.attention import LocalAttention
 import numpy
 from typing import List, Tuple, Optional, Dict
 from pytorch_lightning import LightningModule
-from src.models.modules.flow_encoders import FlowHYBRIDEncoder, FlowLSTMEncoder, FlowBERTEncoder
+from src.models.modules.flow_encoders import FlowHYBRIDEncoder, FlowLSTMEncoder, FlowBERTEncoder, FlowGNNEncoder
 from torch.optim import Adam, SGD, Adamax, RMSprop
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 import torch.nn.functional as F
 from src.metrics import Statistic
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch_geometric.data import Batch
+from src.utils import segment_sizes_to_slices
 
 
 class VulDetectModel(LightningModule):
@@ -56,6 +58,9 @@ class VulDetectModel(LightningModule):
                                                 vocabulary_size, pad_idx)
             elif config.encoder.name == "BERT":
                 self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
+            elif config.encoder.name == "GNN":
+                self._encoder = FlowGNNEncoder(config.encoder, vocabulary_size,
+                                               pad_idx)
             elif config.encoder.name == "HYBRID":
                 self._encoder = FlowHYBRIDEncoder(config.encoder,
                                                   vocabulary_size, pad_idx)
@@ -83,7 +88,7 @@ class VulDetectModel(LightningModule):
 
         self.__classifier = nn.Linear(hidden_size, config.n_classes)
 
-    def forward(self, statements: torch.Tensor,
+    def forward(self, batch: Batch, statements: torch.Tensor,
                 statements_per_value_flow: torch.Tensor,
                 value_flow_per_label: torch.Tensor) -> torch.Tensor:
         """
@@ -96,8 +101,15 @@ class VulDetectModel(LightningModule):
         Returns: classifier results: [n_method; n_classes]
         """
         # [total n_flow; flow_hidden_size]
-        value_flow_embeddings = self._encoder(statements,
-                                              statements_per_value_flow)
+        if self.__config.encoder.name in ["LSTM", "BERT"]:
+            value_flow_embeddings = self._encoder(statements,
+                                                  statements_per_value_flow)
+        elif self.__config.encoder.name == "GNN":
+            value_flow_embeddings = self._encoder(batch,
+                                                  statements_per_value_flow)
+        elif self.__config.encoder.name == "HYBRID":
+            value_flow_embeddings = self._encoder(batch, statements,
+                                                  statements_per_value_flow)
         # [total n_flow; max flow n_statements]
         flow_attn_weights, _ = self._encoder.get_flow_attention_weights()
         # [n_method; max method n_flow; max flow n_statements]
@@ -132,14 +144,6 @@ class VulDetectModel(LightningModule):
         """
         return self.__method_attn_weights, self.__value_flow_attn_weights
 
-    def _segment_sizes_to_slices(self, sizes: torch.Tensor) -> List:
-        cum_sums = numpy.cumsum(sizes.cpu())
-        start_of_segments = numpy.append([0], cum_sums[:-1])
-        return [
-            slice(start, end)
-            for start, end in zip(start_of_segments, cum_sums)
-        ]
-
     def _cut_value_flow_embeddings(
             self,
             value_flow_embeddings: torch.Tensor,
@@ -162,7 +166,7 @@ class VulDetectModel(LightningModule):
         method_flows_attn_mask = value_flow_embeddings.new_zeros(
             (batch_size, max_context_len))
 
-        statments_slices = self._segment_sizes_to_slices(value_flow_per_label)
+        statments_slices = segment_sizes_to_slices(value_flow_per_label)
         for i, (cur_slice, cur_size) in enumerate(
                 zip(statments_slices, value_flow_per_label)):
             method_flows_embeddings[
@@ -194,7 +198,8 @@ class VulDetectModel(LightningModule):
     def training_step(self, batch: MethodSampleBatch,
                       batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_method; n_classes]
-        logits = self(batch.statements, batch.statements_per_value_flow,
+        logits = self(batch.ast_graphs, batch.statements,
+                      batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
         result: Dict = {"train/loss", loss}
@@ -225,7 +230,8 @@ class VulDetectModel(LightningModule):
     def validation_step(self, batch: MethodSampleBatch,
                         batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_method; n_classes]
-        logits = self(batch.statements, batch.statements_per_value_flow,
+        logits = self(batch.ast_graphs, batch.statements,
+                      batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
         result: Dict = {"val/loss", loss}
@@ -250,7 +256,8 @@ class VulDetectModel(LightningModule):
     def test_step(self, batch: MethodSampleBatch,
                   batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_method; n_classes]
-        logits = self(batch.statements, batch.statements_per_value_flow,
+        logits = self(batch.ast_graphs, batch.statements,
+                      batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
         result: Dict = {"test/loss", loss}

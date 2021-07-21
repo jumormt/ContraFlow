@@ -1,3 +1,4 @@
+from numpy.lib.arraypad import pad
 from torch import nn
 from omegaconf import DictConfig
 import torch
@@ -6,6 +7,10 @@ import numpy
 from typing import Tuple
 from transformers import RobertaModel, RobertaConfig
 from src.utils import segment_sizes_to_slices
+from torch_geometric.data import Batch
+from torch_geometric.nn import GINEConv, TopKPooling
+from src.datas.datastructures import NodeType
+from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 
 
 def linear_after_attn(in_dim: int, out_dim: int, activation: str) -> nn.Module:
@@ -69,6 +74,100 @@ def cut_statements_embeddings(
         flow_statments_attn_mask[i, cur_size:] = mask_value
 
     return flow_statments_embeddings, flow_statments_attn_mask
+
+
+def gine_conv_nn(in_dim: int, out_dim: int) -> nn.Module:
+    return torch.nn.Sequential(
+        torch.nn.Linear(in_dim, 2 * in_dim),
+        torch.nn.BatchNorm1d(2 * in_dim),
+        torch.nn.ReLU(),
+        torch.nn.Linear(2 * in_dim, out_dim),
+    )
+
+
+class GINEConvEncoder(torch.nn.Module):
+    """GINEConv encoder to encode each ast (statement) into a compact vector.
+    We use GINEConv and TopKPooling based on JK-net-style architecture
+    """
+    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+        super().__init__()
+        self.__config = config
+        self.__pad_idx = pad_idx
+        self.__st_embedding = nn.Embedding(vocabulary_size,
+                                           config.ast.embed_dim,
+                                           padding_idx=pad_idx)
+        # Additional embedding value for masked token
+        self.__node_type_embedding = nn.Embedding(
+            len(NodeType) + 1, config.ast.embed_dim)
+        torch.nn.init.xavier_uniform_(self.__st_embedding.weight.data)
+
+        self.__input_GCL = GINEConv(
+            gine_conv_nn(config.ast.embed_dim, config.ast.hidden_dim))
+        self.__input_GPL = TopKPooling(config.ast.hidden_dim,
+                                       ratio=config.ast.pooling_ratio)
+
+        for i in range(config.ast.n_hidden_layers - 1):
+            setattr(
+                self, f"__hidden_GCL{i}",
+                GINEConv(
+                    gine_conv_nn(config.ast.hidden_dim,
+                                 config.ast.hidden_dim)))
+            setattr(
+                self, f"__hidden_GPL{i}",
+                TopKPooling(config.ast.hidden_dim,
+                            ratio=config.ast.pooling_ratio))
+        self.__fcl_after_cat = nn.Sequential(
+            nn.Linear(2 * config.ast.hidden_dim, config.ast.hidden_dim),
+            nn.Dropout(config.ast.dropout))
+
+    def forward(self, batched_graph: Batch) -> torch.Tensor:
+        """
+
+        Args:
+            batched_graph (Batch): [total n_statements (Data)]
+            statements_per_label (Tensor): [n_flow]
+
+        Returns: statement_embeddings: [total n_statements; ast hidden dim]
+        """
+        # [n nodes]
+        n_parts = (batched_graph.x != self.__pad_idx).sum(dim=-1).reshape(
+            -1, 1)
+        # There are some nodes without token, e.g., `s = ""` would lead to node for "" with empty token.
+        not_empty_mask = (n_parts != 0).reshape(-1)
+        # [n nodes; embed dim]
+        subtokens_embed = self.__st_embedding(batched_graph.x).sum(dim=1)
+        subtokens_embed[not_empty_mask] /= n_parts[not_empty_mask]
+
+        # [n nodes; embed dim]
+        node_types_embed = self.__node_type_embedding(
+            batched_graph["node_type"])
+        # [n nodes; embed dim]
+        node_embedding = subtokens_embed + node_types_embed
+
+        # Sparse adjacent matrix
+        # num_nodes = batched_graph.num_nodes
+        # adj_t = SparseTensor.from_edge_index(batched_graph.edge_index, edge_embedding, (num_nodes, num_nodes)).t()
+        # adj_t = adj_t.device_as(edge_embedding)
+
+        edge_index = batched_graph.edge_index
+        batch = batched_graph.batch
+        # [n nodes; hidden dim]
+        x = self.__input_GCL(x=node_embedding, edge_index=edge_index)
+        x, edge_index, _, batch, _, _ = self.__input_GPL(x=x,
+                                                         edge_index=edge_index,
+                                                         edge_attr=None,
+                                                         batch=batch)
+        statement_embeddings = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
+        for i in range(self.__config.ast.n_hidden_layers - 1):
+            x = getattr(self, f"__hidden_GCL{i}")(x, edge_index)
+            x, edge_index, _, batch, _, _ = getattr(self, f"hidden_GPL{i}")(
+                x, edge_index, None, batch)
+            statement_embeddings += torch.cat(
+                [gmp(x, batch), gap(x, batch)], dim=1)
+
+        # [total n_statements; ast hidden dim]
+        statement_embeddings = self.__fcl_after_cat(statement_embeddings)
+        return statement_embeddings
 
 
 class FlowGRULayer(nn.Module):
@@ -297,7 +396,52 @@ class FlowBERTEncoder(nn.Module):
         Returns:
             : [n_flow; max flow n_statements] the importance of statements on each value flow
         """
-        return self.__flow_attn_weights.squeeze(2)
+        return self.__flow_attn_weights.squeeze(2), None
+
+
+class FlowGNNEncoder(nn.Module):
+    r"""The value flow encoder to transform a value flow into a compact vector.
+    This implementation is based on GNN (GINEConv)
+
+    Args:
+        config (DictConfig): configuration for the encoder
+        pad_idx (int): the index of padding token, e.g., tokenizer.pad_token_id
+    """
+    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+        super().__init__()
+        self.__gnn_encoder = GINEConvEncoder(config, vocabulary_size, pad_idx)
+        self.__flow_gru = FlowGRULayer(input_dim=config.ast.hidden_dim,
+                                       out_dim=config.flow_hidden_size,
+                                       num_layers=config.num_layers,
+                                       use_bi=config.flow_use_bi_rnn,
+                                       dropout=config.flow_dropout,
+                                       activation=config.activation)
+
+    def forward(self, batch: Batch,
+                statements_per_label: torch.Tensor) -> torch.Tensor:
+        """
+
+        Args:
+            batch (Tensor): [total n_statements (Data)]
+            statements_per_label (Tensor): [n_flow]
+
+        Returns: flow_embedding: [n_flow; flow_hidden_size]
+        """
+
+        # [total n_statements; ast hidden dim]
+        statements_embeddings = self.__gnn_encoder(batch)
+        # [n_flow, flow hidden size]
+        flow_embeddings, self.__flow_attn_weights = self.__flow_gru(
+            statements_embeddings, statements_per_label)
+        return flow_embeddings
+
+    def get_flow_attention_weights(self):
+        """get the attention scores of statements and tokens
+
+        Returns:
+            : [n_flow; max flow n_statements] the importance of statements on each value flow
+        """
+        return self.__flow_attn_weights.squeeze(2), None
 
 
 class FlowHYBRIDEncoder(nn.Module):
@@ -314,16 +458,17 @@ class FlowHYBRIDEncoder(nn.Module):
         # we can use the tokenizer of bert
         self.__lstm_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
         self.__bert_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
-
-        self.__fuse_layer = nn.Linear(2 * config.flow_hidden_size,
+        self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx)
+        self.__fuse_layer = nn.Linear(3 * config.flow_hidden_size,
                                       config.flow_hidden_size)
 
-    def forward(self, statements: torch.Tensor,
+    def forward(self, batch: Batch, statements: torch.Tensor,
                 statements_per_label: torch.Tensor) -> torch.Tensor:
         """
 
         Args:
             statements (Tensor): [seq len; total n_statements]
+            batch (Batch): [total n_statements (Data)]
             statements_per_label (Tensor): [n_flow]
 
         Returns: flow_embedding: [n_flow; flow_hidden_size]
@@ -333,8 +478,12 @@ class FlowHYBRIDEncoder(nn.Module):
                                                    statements_per_label)
         bert_flow_embeddings = self.__bert_encoder(statements,
                                                    statements_per_label)
+        gnn_flow_embeddings = self.__gnn_encoder(batch, statements_per_label)
         flow_embeddings = self.__fuse_layer(
-            torch.cat([lstm_flow_embeddings, bert_flow_embeddings], dim=1))
+            torch.cat([
+                lstm_flow_embeddings, bert_flow_embeddings, gnn_flow_embeddings
+            ],
+                      dim=1))
 
         return flow_embeddings
 

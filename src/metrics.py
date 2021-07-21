@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import torch
 import numpy
@@ -28,7 +28,7 @@ class Statistic:
         self.BTP_F1 += other_statistic.BTP_F1
         self.n_lines += other_statistic.n_lines
 
-    def calculate_metrics(self, group: str = None) -> Dict[str, int]:
+    def calculate_metrics(self, group: Optional[str] = None) -> Dict[str, int]:
         precision, recall, f1, fpr, acc = 0, 0, 0, 0, 0
         acc = (self.true_negative + self.true_positive) / (
             self.true_positive + self.true_negative + self.false_positive +
@@ -79,7 +79,7 @@ class Statistic:
                                                                            1]
         return statistic
 
-    def mean_BTP(self, group: str = None) -> Dict[str, float]:
+    def mean_BTP(self, group: Optional[str] = None) -> Dict[str, float]:
         if (len(self.BTP_P) == 0):
             metrics_dict = {"BTP_P": 0.0, "BTP_R": 0.0, "BTP_F1": 0.0}
         else:
@@ -99,7 +99,7 @@ class Statistic:
                          flaws: List,
                          method_weights: torch.Tensor,
                          flow_weights: torch.Tensor,
-                         group: str = None,
+                         group: Optional[str] = None,
                          k: int = 3) -> Dict[str, float]:
         """
         calculate BTP metrics
