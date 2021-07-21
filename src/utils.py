@@ -1,7 +1,7 @@
 from warnings import filterwarnings
 import subprocess
 from tokenizers import Tokenizer
-from typing import List, Union
+from typing import List, Union, Dict
 import numpy
 import torch
 from transformers import RobertaTokenizer
@@ -48,6 +48,18 @@ def count_lines_in_file(file_path: str) -> int:
 def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
                                                          RobertaTokenizer],
                      encoder_name: str, max_len: int) -> numpy.ndarray:
+    """
+    transform a list of long strings to numpy array using tokenizer
+
+    Args:
+        values (List[str]): a list of long strings, e.g., ["int i = 1;", "return i;"]
+        tokenizer:
+        encoder_name (str): the name of encoder
+        max_len (int): the max len to encode each long string
+
+    Returns:
+        : [max_len; len(values)], dtype=numpy.compat.long
+    """
 
     if encoder_name == "LSTM":
         res = numpy.full((max_len, len(values)),
@@ -77,7 +89,7 @@ def calc_sim_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-8):
         a (Tensor): [N; dim]
         b (Tensor): [N; dim]
         eps (float): avoid numerical error
-    
+
     Returns: [N; N]
     """
     a_n, b_n = a.norm(dim=1)[:, None], b.norm(dim=1)[:, None]
@@ -88,8 +100,48 @@ def calc_sim_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-8):
 
 
 def segment_sizes_to_slices(sizes: torch.Tensor) -> List:
+    """convert length per sample list to slice
+
+    Args:
+        sizes (Tensor): [n_sample]
+
+    Returns:
+        : List[slice(start, end)]
+
+    Examples::
+        [1,2,3] -> [(0, 1), (1, 3), (3, 6)]
+    """
     cum_sums = numpy.cumsum(sizes.cpu())
     start_of_segments = numpy.append([0], cum_sums[:-1])
     return [
         slice(start, end) for start, end in zip(start_of_segments, cum_sums)
     ]
+
+
+def read_csv(csv_file_path: str) -> List[Dict]:
+    """
+        read csv to memory
+    Args:
+        csv_file_path (str): path to csv
+
+    Returns:
+        : List[row]
+
+    """
+    data = []
+    with open(csv_file_path) as fp:
+        header = fp.readline()
+        header = header.strip()
+        h_parts = [hp.strip() for hp in header.split('\t')]
+        for line in fp:
+            line = line.strip()
+            instance = {}
+            lparts = line.split('\t')
+            for i, hp in enumerate(h_parts):
+                if i < len(lparts):
+                    content = lparts[i].strip()
+                else:
+                    content = ''
+                instance[hp] = content
+            data.append(instance)
+        return data

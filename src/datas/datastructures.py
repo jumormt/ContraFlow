@@ -3,6 +3,7 @@ from typing import List
 
 import numpy
 import torch
+from enum import Enum
 
 
 @dataclass
@@ -101,9 +102,10 @@ class MethodSample:
 class MethodSampleBatch:
     def __init__(self, method_samples: List[MethodSample]):
         # [batch size]
-        self.value_flow_per_label = torch.tensor(
-            [len(method_sample.value_flows) for method_sample in method_samples],
-            dtype=torch.long)
+        self.value_flow_per_label = torch.tensor([
+            len(method_sample.value_flows) for method_sample in method_samples
+        ],
+                                                 dtype=torch.long)
         self.labels = torch.tensor(
             [method_sample.label for method_sample in method_samples],
             dtype=torch.long)
@@ -154,3 +156,68 @@ class MethodSampleBatch:
             device)
         self.statements = self.statements.to(device)
         self.labels = self.labels.to(device)
+
+
+class NodeType(Enum):
+    """Enum class to represent node type.
+    """
+
+    CompoundStatement = 0
+    ExpressionStatement = 1
+    IdentifierDeclStatement = 2
+    IfStatement = 3
+    ReturnStatement = 4
+    WhileStatement = 5
+    ElseStatement = 6
+    BreakStatement = 7
+    Statement = 8
+
+    FunctionDef = 9
+    IdentifierDecl = 10
+    AdditiveExpression = 11
+    IdentifierDeclType = 12
+    MemberAccess = 13
+    CFGEntryNode = 14
+    File = 15
+    Symbol = 16
+    ArrayIndexing = 17
+    Parameter = 18
+    SizeofExpression = 19
+    AssignmentExpression = 20
+    ParameterType = 21
+    Condition = 22
+    EqualityExpression = 23
+    ParameterList = 24
+    Decl = 25
+    Callee = 26
+    Argument = 27
+    ReturnType = 28
+    ArgumentList = 29
+    SizeofOperand = 30
+    UnaryOperationExpression = 31
+    ShiftExpression = 32
+    PtrMemberAccess = 33
+    DeclStmt = 34
+    OrExpression = 35
+    Sizeof = 36
+    Function = 37
+    UnaryOperator = 38
+    Identifier = 39
+    CFGExitNode = 40
+    PrimaryExpression = 41
+    RelationalExpression = 42
+    CallExpression = 43
+
+
+@dataclass
+class ASTNode:
+    content: str
+    node_type: str
+    childs: List
+
+
+@dataclass
+class Statement:
+    file_path: str
+    line_number: int
+    ast: ASTNode

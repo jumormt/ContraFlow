@@ -12,7 +12,7 @@ from typing import Union
 
 class ValueFlowDataset(Dataset):
     """
-    [{"flow":[st1,st2,...], "feature":[1,0,1]}]
+    [{"file": "dataset/project/commitid/files/*", "flow": [line 1, line 2, ...], "feature":[1,0,1]}]
 
     """
     def __init__(self, data_path: str, config: DictConfig,
@@ -43,7 +43,10 @@ class ValueFlowDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlow:
         value_flow = self.__value_flows[index]
-        value_flow_raw = value_flow["flow"]
+        with open(value_flow["file"], encoding="utf-8", errors="ignore") as f:
+            file_content = f.readlines()
+        value_flow_lines = value_flow["flow"]
+        value_flow_raw = [file_content[line - 1] for line in value_flow_lines]
         feature = value_flow["feature"]
         statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
                                       self.__config.encoder.name,
@@ -59,7 +62,7 @@ class ValueFlowDataset(Dataset):
 
 class ValueFlowPairDataset(Dataset):
     """
-    [[[st1,st2,...],[st1',st2',...]],]
+    [[{"file":, "flow_linenum": [], "feature":[1,0,1]},{"file":, "flow_linenum": [], "feature":[1,0,1]}],]
 
     """
     def __init__(self, data_path: str, config: DictConfig,
@@ -90,7 +93,19 @@ class ValueFlowPairDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlowPair:
         pair = self.__pairs[index]
-        value_flow_raw1, value_flow_raw2 = pair[0], pair[1]
+        with open(pair[0]["file"], encoding="utf-8", errors="ignore") as f:
+            file_content1 = f.readlines()
+        with open(pair[1]["file"], encoding="utf-8", errors="ignore") as f:
+            file_content2 = f.readlines()
+
+        value_flow_lines1 = pair[0]["flow"]
+        value_flow_lines2 = pair[1]["flow"]
+        value_flow_raw1 = [
+            file_content1[line - 1] for line in value_flow_lines1
+        ]
+        value_flow_raw2 = [
+            file_content2[line - 1] for line in value_flow_lines2
+        ]
         statements1 = strings_to_numpy(value_flow_raw1, self.__tokenizer,
                                        self.__config.encoder.name,
                                        self.__config.max_token_parts)
@@ -111,7 +126,7 @@ class ValueFlowPairDataset(Dataset):
 
 class MethodSampleDataset(Dataset):
     """
-    [{"id": ["commit_file_startline"],"lines": [st1, st2], "label":0, "flaws":[idx,], "flows": [[idx 1, idx 2, ...], ...]}]
+    [{"file": "dataset/project/commitid/files/*", "label":0, "flaws":[line,], "flows": [[line 1, line 2, ...], ...]}]
     """
     def __init__(self, data_path: str, config: DictConfig,
                  tokenizer: Union[Tokenizer, RobertaTokenizer]) -> None:
@@ -147,16 +162,20 @@ class MethodSampleDataset(Dataset):
         numpy.random.shuffle(flow_indexes)
 
         value_flows = list()
+        with open(method["file"], encoding="utf-8", errors="ignore") as f:
+            file_content = f.readlines()
         for i in flow_indexes:
-            value_flow_idx = method["flows"][i]
-            value_flow_raw = [method["lines"][j] for j in value_flow_idx]
+            value_flow_lines = method["flows"][i]
+            value_flow_raw = [
+                file_content[line - 1].strip() for line in value_flow_lines
+            ]
             statements = strings_to_numpy(
                 value_flow_raw, self.__tokenizer, self.__config.encoder.name,
                 self.__config.encoder.max_token_parts)
             value_flows.append(
                 ValueFlow(statements=statements,
                           n_statements=len(value_flow_raw),
-                          statements_idx=value_flow_idx))
+                          statements_idx=value_flow_lines))
 
         return MethodSample(value_flows=value_flows,
                             label=method["label"],
