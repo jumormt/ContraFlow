@@ -41,7 +41,7 @@ def train(model: LightningModule, data_module: LightningDataModule,
     upload_weights = UploadCheckpointCallback(
         join(tensorlogger.log_dir, "checkpoints"))
 
-    early_stopping_callback = EarlyStopping(patience=config.train.patience,
+    early_stopping_callback = EarlyStopping(patience=config.hyper_parameters.patience,
                                             monitor="val_loss",
                                             verbose=True,
                                             mode="min")
@@ -52,19 +52,19 @@ def train(model: LightningModule, data_module: LightningDataModule,
 
     gpu = 1 if torch.cuda.is_available() else None
     trainer = Trainer(
-        max_epochs=config.train.n_epochs,
-        gradient_clip_val=config.train.clip_norm,
+        max_epochs=config.hyper_parameters.n_epochs,
+        gradient_clip_val=config.hyper_parameters.clip_norm,
         deterministic=True,
-        val_check_interval=config.train.val_every_step,
-        log_every_n_steps=config.train.log_every_n_steps,
+        val_check_interval=config.hyper_parameters.val_every_step,
+        log_every_n_steps=config.hyper_parameters.log_every_n_steps,
         logger=[tensorlogger],
         gpus=gpu,
-        progress_bar_refresh_rate=config.progress_bar_refresh_rate,
+        progress_bar_refresh_rate=config.hyper_parameters.progress_bar_refresh_rate,
         callbacks=[
             lr_logger, early_stopping_callback, checkpoint_callback,
             print_epoch_results, upload_weights
         ],
-        resume_from_checkpoint=config.resume_from_checkpoint,
+        resume_from_checkpoint=config.hyper_parameters.resume_from_checkpoint,
     )
 
     trainer.fit(model=model, datamodule=data_module)
