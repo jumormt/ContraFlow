@@ -1,0 +1,31 @@
+data_folder: "../data/gnn_pretraining/d2a"
+
+max_token_parts: 32
+num_workers: 8
+
+ast:
+  embed_dim: 64
+  hidden_dim: 64
+  
+  n_head: 3
+  edge_sample_ratio: 0.8
+  
+  n_hidden_layers: 3
+  dropout: 0.5
+  pooling_ratio: 0.8
+
+hyper_parameters:
+  n_epochs: 300
+  patience: 10
+  batch_size: 64
+  test_batch_size: 64
+  val_every_step: 1.0
+  log_every_n_steps: 50
+  progress_bar_refresh_rate: 1
+  resume_from_checkpoint: null
+  clip_norm: 10
+
+  optimizer: "Adam"
+  learning_rate: 0.005
+  decay_gamma: 0.95
+  shuffle_data: true

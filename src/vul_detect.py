@@ -47,7 +47,8 @@ def vul_detect(config_path: str):
     data_module = MethodSampleDataModule(config, tokenizer)
 
     # Init model
-    model = VulDetectModel(config, vocab_size, pad_idx, config.pretrained)
+    model = VulDetectModel(config, vocab_size, pad_idx, config.pretrained,
+                           config.encoder.pretrained)
 
     train(model, data_module, config)
 

@@ -47,7 +47,8 @@ def pretrain(config_path: str):
     data_module = ValueFlowDataModule(config, tokenizer)
 
     # Init model
-    model = FlowCLPretraining(config, vocab_size, pad_idx)
+    model = FlowCLPretraining(config, vocab_size, pad_idx,
+                              config.encoder.pretrained)
 
     train(model, data_module, config)
 

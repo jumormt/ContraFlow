@@ -5,7 +5,7 @@ from src.models.modules.attention import LocalAttention
 import numpy
 from src.utils import cut_lower_embeddings
 from torch_geometric.data import Batch
-from torch_geometric.nn import GINEConv, TopKPooling
+from torch_geometric.nn import GINEConv, TopKPooling, SuperGATConv
 from src.datas.graph import NodeType
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 
@@ -42,12 +42,10 @@ def get_activation(activation_name: str) -> torch.nn.Module:
 
 
 def gine_conv_nn(in_dim: int, out_dim: int) -> nn.Module:
-    return torch.nn.Sequential(
-        torch.nn.Linear(in_dim, 2 * in_dim),
-        torch.nn.BatchNorm1d(2 * in_dim),
-        torch.nn.ReLU(),
-        torch.nn.Linear(2 * in_dim, out_dim),
-    )
+    return torch.nn.Sequential(torch.nn.Linear(in_dim, 2 * in_dim),
+                               torch.nn.BatchNorm1d(2 * in_dim),
+                               torch.nn.ReLU(),
+                               torch.nn.Linear(2 * in_dim, out_dim))
 
 
 class GINEConvEncoder(torch.nn.Module):
@@ -133,6 +131,96 @@ class GINEConvEncoder(torch.nn.Module):
         # [total n_statements; ast hidden dim]
         statement_embeddings = self.__fcl_after_cat(statement_embeddings)
         return statement_embeddings
+
+
+class SuperGATConvEncoder(torch.nn.Module):
+    """SUPERGATConv encoder to encode each ast (statement) into a compact vector.
+
+    We use SuperGATConv from  "How to Find Your Friendly Neighborhood: Graph Attention Design with Self-Supervision” (ICLR'21). The architecture is based on JK-net-style architecture.
+
+    """
+    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+        super().__init__()
+        self.__config = config
+        self.__pad_idx = pad_idx
+        self.__st_embedding = nn.Embedding(vocabulary_size,
+                                           config.ast.embed_dim,
+                                           padding_idx=pad_idx)
+        # Additional embedding value for masked token
+        self.__node_type_embedding = nn.Embedding(
+            len(NodeType) + 1, config.ast.embed_dim)
+        torch.nn.init.xavier_uniform_(self.__st_embedding.weight.data)
+
+        self.__input_GCL = SuperGATConv(
+            in_channels=config.ast.embed_dim,
+            out_channels=config.ast.hidden_dim,
+            heads=config.ast.n_head,
+            dropout=config.ast.dropout,
+            attention_type='MX',
+            edge_sample_ratio=config.ast.edge_sample_ratio)
+
+        for i in range(config.ast.n_hidden_layers - 1):
+            setattr(
+                self, f"__hidden_GCL{i}",
+                SuperGATConv(in_channels=config.ast.n_head *
+                             config.ast.hidden_dim,
+                             out_channels=config.ast.hidden_dim,
+                             heads=config.ast.n_head,
+                             dropout=config.ast.dropout,
+                             attention_type='MX',
+                             edge_sample_ratio=config.ast.edge_sample_ratio))
+        self.__fcl_after_cat = nn.Sequential(
+            nn.Linear(2 * config.ast.n_head * config.ast.hidden_dim,
+                      config.ast.hidden_dim), nn.Dropout(config.ast.dropout))
+
+    def forward(self, batched_graph: Batch) -> torch.Tensor:
+        """
+
+        Args:
+            batched_graph (Batch): [total n_statements (Data)]
+            statements_per_label (Tensor): [n_flow]
+
+        Returns: statement_embeddings: [total n_statements; ast hidden dim]
+        """
+        # [n nodes]
+        n_parts = (batched_graph.x != self.__pad_idx).sum(dim=-1).reshape(
+            -1, 1)
+        # There are some nodes without token, e.g., `s = ""` would lead to node for "" with empty token.
+        not_empty_mask = (n_parts != 0).reshape(-1)
+        # [n nodes; embed dim]
+        subtokens_embed = self.__st_embedding(batched_graph.x).sum(dim=1)
+        subtokens_embed[not_empty_mask] /= n_parts[not_empty_mask]
+
+        # [n nodes; embed dim]
+        node_types_embed = self.__node_type_embedding(
+            batched_graph["node_type"])
+        # [n nodes; embed dim]
+        node_embedding = subtokens_embed + node_types_embed
+
+        # Sparse adjacent matrix
+        # num_nodes = batched_graph.num_nodes
+        # adj_t = SparseTensor.from_edge_index(batched_graph.edge_index, edge_embedding, (num_nodes, num_nodes)).t()
+        # adj_t = adj_t.device_as(edge_embedding)
+
+        edge_index = batched_graph.edge_index
+        batch = batched_graph.batch
+        # [n nodes; n_head * hidden dim]
+        x = self.__input_GCL(x=node_embedding, edge_index=edge_index)
+        self.__att_loss = self.__input_GCL.get_attention_loss()
+        statement_embeddings = torch.cat([gmp(x, batch), gap(x, batch)], dim=1)
+        for i in range(self.__config.ast.n_hidden_layers - 1):
+            x = getattr(self, f"__hidden_GCL{i}")(x, edge_index)
+            statement_embeddings += torch.cat(
+                [gmp(x, batch), gap(x, batch)], dim=1)
+            self.__att_loss += getattr(
+                self, f"__hidden_GCL{i}").get_attention_loss()
+
+        # [total n_statements; ast hidden dim]
+        statement_embeddings = self.__fcl_after_cat(statement_embeddings)
+        return statement_embeddings
+
+    def get_att_loss(self):
+        return self.__att_loss
 
 
 class FlowGRULayer(nn.Module):

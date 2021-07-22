@@ -5,8 +5,9 @@ from src.models.modules.attention import LocalAttention
 import numpy
 from src.utils import cut_lower_embeddings
 from transformers import RobertaModel, RobertaConfig
-from src.models.modules.common_layers import GINEConvEncoder, FlowGRULayer, linear_after_attn
+from src.models.modules.common_layers import FlowGRULayer, SuperGATConvEncoder, linear_after_attn
 from torch_geometric.data import Batch
+from typing import Optional
 
 
 class FlowLSTMEncoder(nn.Module):
@@ -182,9 +183,27 @@ class FlowGNNEncoder(nn.Module):
         config (DictConfig): configuration for the encoder
         pad_idx (int): the index of padding token, e.g., tokenizer.pad_token_id
     """
-    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+    def __init__(self,
+                 config: DictConfig,
+                 vocabulary_size: int,
+                 pad_idx: int,
+                 pretrain: Optional[str] = None):
         super().__init__()
-        self.__gnn_encoder = GINEConvEncoder(config, vocabulary_size, pad_idx)
+        # self.__gnn_encoder = GINEConvEncoder(config, vocabulary_size, pad_idx)
+        if pretrain is not None:
+            print("Use pretrained weights for flow gnn encoder")
+            state_dict = torch.load(pretrain)
+            if isinstance(state_dict, dict) and "state_dict" in state_dict:
+                state_dict = state_dict["state_dict"]
+            state_dict = {
+                k.removeprefix("_gnn_encoder."): v
+                for k, v in state_dict.items() if k.startswith("_gnn_encoder.")
+            }
+            self._encoder.load_state_dict(state_dict)
+        else:
+            print("No pretrained weights for flow gnn encoder")
+            self._gnn_encoder = SuperGATConvEncoder(config, vocabulary_size,
+                                                    pad_idx)
         self.__flow_gru = FlowGRULayer(input_dim=config.ast.hidden_dim,
                                        out_dim=config.flow_hidden_size,
                                        num_layers=config.num_layers,
@@ -204,7 +223,7 @@ class FlowGNNEncoder(nn.Module):
         """
 
         # [total n_statements; ast hidden dim]
-        statements_embeddings = self.__gnn_encoder(batch)
+        statements_embeddings = self._gnn_encoder(batch)
         # [n_flow, flow hidden size]
         flow_embeddings, self.__flow_attn_weights = self.__flow_gru(
             statements_embeddings, statements_per_label)
@@ -228,12 +247,12 @@ class FlowHYBRIDEncoder(nn.Module):
         vocabulary_size (int): the size of vacabulary, e.g. tokenizer.get_vocab_size()
         pad_idx (int): the index of padding token, e.g., tokenizer.token_to_id(PAD)
     """
-    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int, pretrain: Optional[str] = None):
         super().__init__()
         # we can use the tokenizer of bert
         self.__lstm_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
         self.__bert_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
-        self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx)
+        self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx, pretrain)
         self.__fuse_layer = nn.Linear(3 * config.flow_hidden_size,
                                       config.flow_hidden_size)
 

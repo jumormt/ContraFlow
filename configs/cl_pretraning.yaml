@@ -18,9 +18,15 @@ encoder:
   flow_use_bi_rnn: true
   flow_dropout: 0.5
 
+  pretrained: null
+
   ast:
     embed_dim: 64
     hidden_dim: 64
+    
+    n_head: 3
+    edge_sample_ratio: 0.8
+    
     n_hidden_layers: 3
     dropout: 0.5
     pooling_ratio: 0.8

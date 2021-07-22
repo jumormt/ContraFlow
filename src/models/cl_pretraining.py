@@ -3,7 +3,7 @@ from pytorch_lightning import LightningModule
 from src.models.modules.flow_encoders import FlowGNNEncoder, FlowLSTMEncoder, FlowBERTEncoder, FlowHYBRIDEncoder
 from src.datas.datastructures import ValueFlowBatch
 import torch
-from typing import List, Iterator, Dict
+from typing import List, Iterator, Dict, Optional
 from torch.nn import Parameter
 from torch.optim import Adam, SGD, Adamax, RMSprop
 from src.loss import NCE_loss
@@ -20,7 +20,11 @@ class FlowCLPretraining(LightningModule):
         "Adamax": Adamax
     }
 
-    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int):
+    def __init__(self,
+                 config: DictConfig,
+                 vocabulary_size: int,
+                 pad_idx: int,
+                 pretrain_gnn: Optional[str] = None):
         super().__init__()
         self.__config = config
         if config.encoder.name == "LSTM":
@@ -30,10 +34,10 @@ class FlowCLPretraining(LightningModule):
             self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
         elif config.encoder.name == "GNN":
             self._encoder = FlowGNNEncoder(config.encoder, vocabulary_size,
-                                           pad_idx)
+                                           pad_idx, pretrain_gnn)
         elif config.encoder.name == "HYBRID":
             self._encoder = FlowHYBRIDEncoder(config.encoder, vocabulary_size,
-                                              pad_idx)
+                                              pad_idx, pretrain_gnn)
         else:
             raise ValueError(f"Cant find encoder model: {config.encoder.name}")
 
@@ -54,7 +58,8 @@ class FlowCLPretraining(LightningModule):
         elif self.__config.encoder.name == "HYBRID":
             return self._encoder(batch, statements, statements_per_label)
         else:
-            raise ValueError(f"Cant find encoder model: {self.__config.encoder.name}")
+            raise ValueError(
+                f"Cant find encoder model: {self.__config.encoder.name}")
 
     def _get_parameters(self) -> List[Iterator[Parameter]]:
         return [self._encoder.parameters()]

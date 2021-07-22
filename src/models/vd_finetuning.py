@@ -37,11 +37,12 @@ class VulDetectModel(LightningModule):
                  config: DictConfig,
                  vocabulary_size: int,
                  pad_idx: int,
-                 pretrain: Optional[str] = None):
+                 pretrain: Optional[str] = None,
+                 pretrain_gnn: Optional[str] = None):
         super.__init__()
         hidden_size = config.encoder.flow_hidden_size
         if pretrain is not None:
-            print("Use pretrained weights for sequence generating model")
+            print("Use pretrained weights for vulnerability detection model")
             state_dict = torch.load(pretrain)
             if isinstance(state_dict, dict) and "state_dict" in state_dict:
                 state_dict = state_dict["state_dict"]
@@ -51,7 +52,7 @@ class VulDetectModel(LightningModule):
             }
             self._encoder.load_state_dict(state_dict)
         else:
-            print("No pre-trained weights for sequence generating model")
+            print("No pre-trained weights for vulnerability detection model")
             if config.encoder.name == "LSTM":
                 self._encoder = FlowLSTMEncoder(config.encoder,
                                                 vocabulary_size, pad_idx)
@@ -59,10 +60,11 @@ class VulDetectModel(LightningModule):
                 self._encoder = FlowBERTEncoder(config.encoder, pad_idx)
             elif config.encoder.name == "GNN":
                 self._encoder = FlowGNNEncoder(config.encoder, vocabulary_size,
-                                               pad_idx)
+                                               pad_idx, pretrain_gnn)
             elif config.encoder.name == "HYBRID":
                 self._encoder = FlowHYBRIDEncoder(config.encoder,
-                                                  vocabulary_size, pad_idx)
+                                                  vocabulary_size, pad_idx,
+                                                  pretrain_gnn)
             else:
                 raise ValueError(
                     f"Cant find encoder model: {config.encoder.name}")
@@ -110,7 +112,8 @@ class VulDetectModel(LightningModule):
             value_flow_embeddings = self._encoder(batch, statements,
                                                   statements_per_value_flow)
         else:
-            raise ValueError(f"Cant find encoder model: {self.__config.encoder.name}")
+            raise ValueError(
+                f"Cant find encoder model: {self.__config.encoder.name}")
         # [total n_flow; max flow n_statements]
         flow_attn_weights, _ = self._encoder.get_flow_attention_weights()
         # [n_method; max method n_flow; max flow n_statements]

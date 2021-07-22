@@ -11,6 +11,63 @@ from src.datas.datastructures import ValueFlowPairBatch, ValueFlowPair, MethodSa
 from src.datas.datasets import ValueFlowPairDataset, MethodSampleDataset, ValueFlowDataset
 from typing import List, Optional, Union
 from torch.utils.data import DataLoader, Dataset
+from torch_geometric.data import DataLoader as DataLoader_geo
+from torch_geometric.data import Batch
+
+
+class ASTDataModule(LightningDataModule):
+    def __init__(self, config: DictConfig, tokenizer: Union[Tokenizer,
+                                                            RobertaTokenizer]):
+        super().__init__()
+        self.__tokenizer = tokenizer
+        self.__config = config
+        self.__data_folder = config.data_folder
+        self.__n_workers = cpu_count(
+        ) if self.__config.num_workers == -1 else self.__config.num_workers
+
+    def __create_dataset(self, data_path: str) -> Dataset:
+        return ValueFlowDataset(data_path, self.__config, self.__tokenizer)
+
+    def train_dataloader(self) -> DataLoader_geo:
+        train_dataset_path = join(self.__data_folder, "train.json")
+        train_dataset = self.__create_dataset(train_dataset_path)
+        return DataLoader_geo(
+            train_dataset,
+            batch_size=self.__config.hyper_parameters.batch_size,
+            shuffle=self.__config.hyper_parameters.shuffle_data,
+            num_workers=self.__n_workers,
+            pin_memory=True,
+        )
+
+    def val_dataloader(self) -> DataLoader_geo:
+        val_dataset_path = join(self.__data_folder, "val.json")
+        val_dataset = self.__create_dataset(val_dataset_path)
+        return DataLoader_geo(
+            val_dataset,
+            batch_size=self.__config.hyper_parameters.batch_size,
+            shuffle=False,
+            num_workers=self.__n_workers,
+            pin_memory=True,
+        )
+
+    def test_dataloader(self) -> DataLoader_geo:
+        test_dataset_path = join(self.__data_folder, "test.json")
+        test_dataset = self.__create_dataset(test_dataset_path)
+        return DataLoader_geo(
+            test_dataset,
+            batch_size=self.__config.hyper_parameters.batch_size,
+            shuffle=False,
+            num_workers=self.__n_workers,
+            pin_memory=True,
+        )
+
+    def transfer_batch_to_device(
+            self,
+            batch: Batch,
+            device: Optional[torch.device] = None) -> Batch:
+        if device is not None:
+            batch.move_to_device(device)
+        return batch
 
 
 class ValueFlowDataModule(LightningDataModule):

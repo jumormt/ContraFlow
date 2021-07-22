@@ -9,6 +9,42 @@ from os.path import exists
 from transformers import RobertaTokenizer
 from typing import Union
 from src.joern.ast_generator import build_ln_to_ast
+from torch_geometric.data import Data
+
+
+class ASTDataset(Dataset):
+    """
+    ["dataset/project/commitid/files/*"]
+    """
+    def __init__(self, data_path: str, config: DictConfig,
+                 tokenizer: Union[Tokenizer, RobertaTokenizer]) -> None:
+        super().__init__()
+        self.__config = config
+        if not exists(data_path):
+            raise ValueError(f"Can't find file with data: {data_path}")
+        with open(data_path, "r") as f:
+            self.__files = list(json.load(f))
+        self.__n_samples = 0
+        self.__asts = list()
+        for file_path in self.__files:
+            nodes_path, edges_path = get_ast_path_from_file(file_path)
+            ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path,
+                                              edges_path)
+            self.__asts.extend([ln_to_ast_graph[ln] for ln in ln_to_ast_graph])
+            self.__n_samples += len(ln_to_ast_graph)
+
+        self.__tokenizer = tokenizer
+
+    def __len__(self) -> int:
+        return self.__n_samples
+
+    def __getitem__(self, index) -> Data:
+
+        return self.__asts[index].to_torch(self.__tokenizer,
+                                           self.__config.max_token_parts)
+
+    def get_n_samples(self):
+        return self.__n_samples
 
 
 class ValueFlowDataset(Dataset):
