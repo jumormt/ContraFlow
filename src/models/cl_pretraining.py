@@ -27,6 +27,7 @@ class FlowCLPretraining(LightningModule):
                  pretrain_gnn: Optional[str] = None):
         super().__init__()
         self.__config = config
+        self.__pretrain_gnn = pretrain_gnn
         if config.encoder.name == "LSTM":
             self._encoder = FlowLSTMEncoder(config.encoder, vocabulary_size,
                                             pad_idx)
@@ -100,6 +101,14 @@ class FlowCLPretraining(LightningModule):
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
         loss = NCE_loss(embeddings, batch.features)
+        if self.__config.encoder.name in ["GNN", "HYBRID"
+                                          ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
         self.log("train/loss", loss, prog_bar=True, logger=False)
         return loss
 
@@ -108,14 +117,32 @@ class FlowCLPretraining(LightningModule):
         # [n_flow; flow_hidden_size]
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
-        return NCE_loss(embeddings, batch.features)
+        loss = NCE_loss(embeddings, batch.features)
+        if self.__config.encoder.name in ["GNN", "HYBRID"
+                                          ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
+        return loss
 
     def test_step(self, batch: ValueFlowBatch,
                   batch_idx: int) -> torch.Tensor:  # type: ignore
         # [n_flow; flow_hidden_size]
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
-        return NCE_loss(embeddings, batch.features)
+        loss = NCE_loss(embeddings, batch.features)
+        if self.__config.encoder.name in ["GNN", "HYBRID"
+                                          ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
+        return loss
 
     # ========== EPOCH END ==========
 

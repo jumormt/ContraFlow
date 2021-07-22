@@ -40,6 +40,8 @@ class VulDetectModel(LightningModule):
                  pretrain: Optional[str] = None,
                  pretrain_gnn: Optional[str] = None):
         super.__init__()
+        self.__pretrain = pretrain
+        self.__pretrain_gnn = pretrain_gnn
         hidden_size = config.encoder.flow_hidden_size
         if pretrain is not None:
             print("Use pretrained weights for vulnerability detection model")
@@ -175,6 +177,17 @@ class VulDetectModel(LightningModule):
                       batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
+        # if pretrain is not None, we do not add loss
+        if self.__pretrain is None and self.__config.encoder.name in [
+                "GNN", "HYBRID"
+        ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
+
         result: Dict = {"train/loss", loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
@@ -207,6 +220,17 @@ class VulDetectModel(LightningModule):
                       batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
+        # if pretrain is not None, we do not add loss
+        if self.__pretrain is None and self.__config.encoder.name in [
+                "GNN", "HYBRID"
+        ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
+
         result: Dict = {"val/loss", loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
@@ -233,6 +257,18 @@ class VulDetectModel(LightningModule):
                       batch.statements_per_value_flow,
                       batch.value_flow_per_label)
         loss = F.cross_entropy(logits, batch.labels)
+        # if pretrain is not None, we do not add loss
+        if self.__pretrain is None and self.__config.encoder.name in [
+                "GNN", "HYBRID"
+        ] and self.__pretrain_gnn is None:
+            if self.__config.encoder.name == "GNN":
+
+                loss = loss + 4 * self._encoder._gnn_encoder.get_att_loss()
+            else:
+                loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
+                )
+
+
         result: Dict = {"test/loss", loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
