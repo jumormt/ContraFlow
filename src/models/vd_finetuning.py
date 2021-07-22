@@ -109,6 +109,8 @@ class VulDetectModel(LightningModule):
         elif self.__config.encoder.name == "HYBRID":
             value_flow_embeddings = self._encoder(batch, statements,
                                                   statements_per_value_flow)
+        else:
+            raise ValueError(f"Cant find encoder model: {self.__config.encoder.name}")
         # [total n_flow; max flow n_statements]
         flow_attn_weights, _ = self._encoder.get_flow_attention_weights()
         # [n_method; max method n_flow; max flow n_statements]

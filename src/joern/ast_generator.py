@@ -41,7 +41,8 @@ def add_ast_childs(edges: List[Dict],
         node_info: {nodekey: infodict}
     """
     for edge in edges:
-        if (edge["type"] == "IS_AST_PARENT"):
+        if ("type" in edge and edge["type"] == "IS_AST_PARENT"):
+            assert "start" in edge and "end" in edge, f"{edge} do not contain key 'start' 'edge'"
             if int(edge["start"]) in node_info:
                 if "childs" in node_info[int(edge["start"])]:
                     node_info[int(edge["start"])]["childs"].append(
@@ -57,8 +58,14 @@ def construct_ast(node_info: Dict, nodeid: int) -> ASTNode:
     """
     recursively construct ast
     """
+    assert nodeid in node_info, f"{nodeid} not in node_info"
+    assert "code" in node_info[nodeid], f"'code' not in {node_info[nodeid]}"
+
     if node_info[nodeid]["code"] != "" and node_info[nodeid]["code"][0] == '"':
         node_info[nodeid]["code"] = node_info[nodeid]["code"][1:-1]
+    assert "type" in node_info[nodeid], f"'type' not in {node_info[nodeid]}"
+    assert node_info[nodeid][
+        "type"] in NodeType.__members__, f"unknown node type {node_info[nodeid]['type']}"
     astnode = ASTNode(content=node_info[nodeid]["code"],
                       node_type=NodeType[node_info[nodeid]["type"]],
                       childs=list())
@@ -95,16 +102,30 @@ def build_ln_to_ast(file_path: str, nodes_path: str,
         type_root = node_info[ln_to_nodeid[ln][0]]["type"]
         if type_root in ["Statement", "Function", "Condition"]:
             if type_root == "Condition":
+                assert ln_to_nodeid[ln][
+                    0] - 1 in node_info, f"{ln_to_nodeid[ln][0] - 1} not in node_info"
+                assert "code" in node_info[
+                    ln_to_nodeid[ln][0] -
+                    1], f"'code' not in {node_info[ln_to_nodeid[ln][0] - 1]}"
                 content = node_info[ln_to_nodeid[ln][0] - 1]["code"]
                 type_ = node_info[ln_to_nodeid[ln][0] - 1]["type"]
             elif type_root == "Function":
+                assert ln_to_nodeid[ln][
+                    0] + 1 in node_info, f"{ln_to_nodeid[ln][0] + 1} not in node_info"
+                assert "code" in node_info[
+                    ln_to_nodeid[ln][0] -
+                    1], f"'code' not in {node_info[ln_to_nodeid[ln][0] - 1]}"
                 content = node_info[ln_to_nodeid[ln][0] + 1]["code"]
                 type_ = node_info[ln_to_nodeid[ln][0] + 1]["type"]
             else:
+                assert ln - 1 < len(
+                    file_content
+                ), f"{file_path} and {nodes_path} does not match"
                 content = file_content[ln - 1].strip()
                 type_ = type_root
             if (content != "" and content[0] == '"'):
                 content = content[1:-1]
+            assert type_ in NodeType.__members__, f"unkown node type: {type_}"
             astnode = ASTNode(content=content,
                               node_type=NodeType[type_],
                               childs=list())

@@ -46,15 +46,19 @@ class ValueFlowDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlow:
         value_flow = self.__value_flows[index]
+        assert "file" in value_flow, f"{value_flow} do not contain key 'file'"
         file_path = value_flow["file"]
         nodes_path, edges_path = get_ast_path_from_file(file_path)
         with open(file_path, encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
         ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
+        assert "flow" in value_flow, f"{value_flow} do not contain key 'flow'"
         value_flow_lines = value_flow["flow"]
         value_flow_raw = []
         ast_graphs = []
         for line in value_flow_lines:
+            assert line - 1 < len(
+                file_content), f"value flow line overflow, check: f{file_path}"
             line_raw = file_content[line - 1].strip()
             value_flow_raw.append(line_raw)
             if line in ln_to_ast_graph:
@@ -68,7 +72,7 @@ class ValueFlowDataset(Dataset):
                                 childs=[])).to_torch(
                                     self.__tokenizer,
                                     self.__config.max_token_parts))
-
+        assert "feature" in value_flow, f"{value_flow} do not contain key 'feature'"
         feature = value_flow["feature"]
         statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
                                       self.__config.encoder.name,
@@ -118,12 +122,15 @@ class ValueFlowPairDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlowPair:
         pair = self.__pairs[index]
+        assert len(pair) == 2, f"{pair} should be a value flow pair!"
+        assert "file" in pair[0], f"{pair[0]} do not contain key 'file'"
         file_path1 = pair[0]["file"]
         nodes_path1, edges_path1 = get_ast_path_from_file(file_path1)
         with open(file_path1, encoding="utf-8", errors="ignore") as f:
             file_content1 = f.readlines()
         ln_to_ast_graph1 = build_ln_to_ast(file_path1, nodes_path1,
                                            edges_path1)
+        assert "flow" in pair[0], f"{pair[0]} do not contain key 'flow'"
         value_flow_lines1 = pair[0]["flow"]
         value_flow_raw1 = []
         ast_graphs1 = []
@@ -147,12 +154,14 @@ class ValueFlowPairDataset(Dataset):
         value_flow1 = ValueFlow(statements=statements1,
                                 n_statements=len(value_flow_raw1))
 
+        assert "file" in pair[1], f"{pair[1]} do not contain key 'file'"
         file_path2 = pair[1]["file"]
         nodes_path2, edges_path2 = get_ast_path_from_file(file_path2)
         with open(file_path2, encoding="utf-8", errors="ignore") as f:
             file_content2 = f.readlines()
         ln_to_ast_graph2 = build_ln_to_ast(file_path2, nodes_path2,
                                            edges_path2)
+        assert "flow" in pair[1], f"{pair[1]} do not contain key 'flow'"
         value_flow_lines2 = pair[1]["flow"]
         value_flow_raw2 = []
         ast_graphs2 = []
@@ -217,12 +226,14 @@ class MethodSampleDataset(Dataset):
 
     def __getitem__(self, index) -> MethodSample:
         method = self.__methods[index]
+        assert "flows" in method, f"{method} do not contain key 'flows'"
         n_flow = min(len(method["flows"]),
                      self.__config.hyper_parameters.max_n_flow)
         flow_indexes = numpy.arang(n_flow)
         numpy.random.shuffle(flow_indexes)
 
         value_flows = list()
+        assert "file" in method, f"{method} do not contain key 'file'"
         file_path = method["file"]
         nodes_path, edges_path = get_ast_path_from_file(file_path)
         with open(file_path, encoding="utf-8", errors="ignore") as f:
@@ -257,7 +268,8 @@ class MethodSampleDataset(Dataset):
                                          n_statements=len(value_flow_raw),
                                          statements_idx=value_flow_lines),
                                ast_graphs=ast_graphs)
-
+        assert "label" in method, f"{method} do not contain key 'label'"
+        assert "flaws" in method, f"{method} do not contain key 'flaws'"
         return MethodSample(value_flows=value_flows,
                             label=method["label"],
                             flaws=method["flaws"])

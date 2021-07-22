@@ -34,6 +34,8 @@ n_hidden_layers: 3
 n_classes: 2
 
 hyper_parameters:
+  max_n_flow: 200
+  
   n_epochs: 500
   patience: 30
   batch_size: 64

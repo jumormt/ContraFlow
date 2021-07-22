@@ -22,7 +22,7 @@ def configure_arg_parser() -> ArgumentParser:
     return arg_parser
 
 
-def pretrain(config_path: str):
+def vul_detect(config_path: str):
     filter_warnings()
     config = cast(DictConfig, OmegaConf.load(config_path))
     print_config(config, ["encoder", "hyper_parameters"])
@@ -55,4 +55,4 @@ def pretrain(config_path: str):
 if __name__ == "__main__":
     __arg_parser = configure_arg_parser()
     __args = __arg_parser.parse_args()
-    pretrain(__args.config)
+    vul_detect(__args.config)

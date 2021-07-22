@@ -53,6 +53,8 @@ class FlowCLPretraining(LightningModule):
             return self._encoder(batch, statements_per_label)
         elif self.__config.encoder.name == "HYBRID":
             return self._encoder(batch, statements, statements_per_label)
+        else:
+            raise ValueError(f"Cant find encoder model: {self.__config.encoder.name}")
 
     def _get_parameters(self) -> List[Iterator[Parameter]]:
         return [self._encoder.parameters()]
