@@ -251,7 +251,7 @@ class FlowHYBRIDEncoder(nn.Module):
         super().__init__()
         # we can use the tokenizer of bert
         self.__lstm_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
-        self.__bert_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
+        self.__bert_encoder = FlowBERTEncoder(config, vocabulary_size, pad_idx)
         self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx, pretrain)
         self.__fuse_layer = nn.Linear(3 * config.flow_hidden_size,
                                       config.flow_hidden_size)
