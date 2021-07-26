@@ -1,4 +1,4 @@
-data_folder: "../data/cl_pretraining/d2a"
+data_folder: "../data/vul_detect/d2a"
 
 max_token_parts: 32
 num_workers: 8
