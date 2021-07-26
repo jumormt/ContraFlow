@@ -164,5 +164,5 @@ class ASTGraph:
 
 def traverse_ast(ast: ASTNode):
     for child in ast.childs:
-        yield (child, ASTEdge(from_node=ast, to_node=child))
+        yield (child, ASTEdge(from_node=child, to_node=ast))
         yield from traverse_ast(child)
