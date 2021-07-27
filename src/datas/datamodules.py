@@ -7,7 +7,7 @@ from os.path import join
 import torch
 from transformers import RobertaTokenizer
 
-from src.datas.datastructures import ValueFlowPairBatch, ValueFlowPair, MethodSampleBatch, MethodSample, ValueFlow, ValueFlowBatch
+from src.datas.samples import ValueFlowPairBatch, ValueFlowPair, MethodSampleBatch, MethodSample, ValueFlow, ValueFlowBatch
 from src.datas.datasets import ValueFlowPairDataset, MethodSampleDataset, ValueFlowDataset
 from typing import List, Optional, Union
 from torch.utils.data import DataLoader, Dataset

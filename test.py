@@ -1,6 +1,7 @@
 from src.joern.ast_generator import build_ln_to_ast
 from transformers import RobertaTokenizer
 from src.datas.graph import NodeType
+from src.sequence_analyzer.sequence_analyzer import SequencesAnalyzer
 
 
 def test_ast():
@@ -13,5 +14,10 @@ def test_ast():
     data = ast_graph.to_torch(tokenizer, 32)
 
 
+def test_seq_sim():
+    return SequencesAnalyzer("aabccfeg", "aabccfegfg").similarity()
+
+
 if __name__ == "__main__":
-    print(NodeType.__members__)
+    # print(NodeType.__members__)
+    print(test_seq_sim())

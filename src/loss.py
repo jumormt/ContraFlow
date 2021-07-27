@@ -1,5 +1,5 @@
-from typing import Optional
-from src.utils import calc_sim_matrix
+from typing import Optional, Tuple, List
+from src.utils import calc_sim_matrix, calc_strs_sim_matrix
 import torch
 
 
@@ -64,13 +64,15 @@ def NCE_pair_loss(embeddings1: torch.Tensor,
 
 
 def NCE_loss(embeddings: torch.Tensor,
-             features: torch.Tensor,
+             sequences: List[Tuple[str, str]],
+             features: torch.Tensor = None,
              thres: float = 0.5) -> torch.Tensor:
     """
     sum_i(sim(flow_i, [flow_i+])/sim(flow_i, [flow_i+, flow_i-])
 
     Args:
         embeddings (Tensor): [N; embed dim]
+        sequences (List[Tuple[str, str]]): [(apis, types)]
         features (Tensor): [N; feature dim]
         thres (float): similarity threshold
 
@@ -80,8 +82,12 @@ def NCE_loss(embeddings: torch.Tensor,
     n_sample = features.size(0)
     # [N; N]
     sim_matrix = calc_sim_matrix(embeddings, embeddings)
-    sim_slice = (calc_sim_matrix(features, features) -
-                 torch.eye(n_sample, device=embeddings.get_device())) > thres
+    apis, types = zip(*sequences)
+    apis_sim = calc_strs_sim_matrix(apis, embeddings.get_device())
+    types_sim = calc_strs_sim_matrix(types, embeddings.get_device())
+    # sim_slice = (calc_sim_matrix(features, features) -
+    #              torch.eye(n_sample, device=embeddings.get_device())) > thres
+    sim_slice = ((apis_sim + types_sim) / 2) > thres
     loss = 0
     for i in range(n_sample):
         positive_exp_sim_sum = torch.exp(sim_matrix[i][sim_slice[i]]).sum()

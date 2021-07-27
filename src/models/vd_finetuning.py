@@ -1,7 +1,7 @@
 from torch import nn
 from omegaconf import DictConfig
 import torch
-from src.datas.datastructures import MethodSampleBatch
+from src.datas.samples import MethodSampleBatch
 from src.models.modules.attention import LocalAttention
 from typing import Optional, Dict
 from pytorch_lightning import LightningModule

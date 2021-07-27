@@ -3,7 +3,8 @@ from torch.utils.data import Dataset
 import json
 from tokenizers import Tokenizer
 from omegaconf import DictConfig
-from src.datas.graph import ASTNode, ASTGraph, NodeType, ValueFlowPair, ValueFlow, MethodSample
+from src.datas.graph import ASTNode, ASTGraph, NodeType
+from src.datas.samples import ValueFlowPair, ValueFlow, MethodSample
 from src.utils import strings_to_numpy, PAD, get_ast_path_from_file
 from os.path import exists
 from transformers import RobertaTokenizer
@@ -49,7 +50,7 @@ class ASTDataset(Dataset):
 
 class ValueFlowDataset(Dataset):
     """
-    [{"file": "dataset/project/commitid/files/*", "flow": [line 1, line 2, ...], "feature":[1,0,1]}]
+    [{"file": "dataset/project/commitid/files/*", "flow": [line 1, line 2, ...], "apis":"123", "types":"123"}]
 
     """
     def __init__(self, data_path: str, config: DictConfig,
@@ -108,16 +109,21 @@ class ValueFlowDataset(Dataset):
                                 childs=[])).to_torch(
                                     self.__tokenizer,
                                     self.__config.max_token_parts))
-        assert "feature" in value_flow, f"{value_flow} do not contain key 'feature'"
-        feature = value_flow["feature"]
+        # assert "feature" in value_flow, f"{value_flow} do not contain key 'feature'"
+        # feature = value_flow["feature"]
+        assert "apis" in value_flow, f"{value_flow} do not contain key 'apis'"
+        assert "types" in value_flow, f"{value_flow} do not contain key 'types'"
+        apis, types = value_flow["apis"], value_flow["types"]
         statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
                                       self.__config.encoder.name,
                                       self.__config.max_token_parts)
 
-        return ValueFlow(statements=statements,
-                         n_statements=len(value_flow_raw),
-                         feature=numpy.array(feature),
-                         ast_graphs=ast_graphs)
+        return ValueFlow(
+            statements=statements,
+            n_statements=len(value_flow_raw),
+            #  feature=numpy.array(feature),
+            sequence=(apis, types),
+            ast_graphs=ast_graphs)
 
     def get_n_samples(self):
         return self.__n_samples
@@ -125,7 +131,7 @@ class ValueFlowDataset(Dataset):
 
 class ValueFlowPairDataset(Dataset):
     """
-    [[{"file":, "flow_linenum": [], "feature":[1,0,1]},{"file":, "flow_linenum": [], "feature":[1,0,1]}],]
+    [[{"file":, "flow_linenum": []},{"file":, "flow_linenum": []}],]
 
     """
     def __init__(self, data_path: str, config: DictConfig,

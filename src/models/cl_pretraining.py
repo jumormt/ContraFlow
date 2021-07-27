@@ -1,7 +1,7 @@
 from omegaconf import DictConfig
 from pytorch_lightning import LightningModule
 from src.models.modules.flow_encoders import FlowGNNEncoder, FlowLSTMEncoder, FlowBERTEncoder, FlowHYBRIDEncoder
-from src.datas.datastructures import ValueFlowBatch
+from src.datas.samples import ValueFlowBatch
 import torch
 from typing import List, Iterator, Dict, Optional
 from torch.nn import Parameter
@@ -100,7 +100,7 @@ class FlowCLPretraining(LightningModule):
         # [n_flow; flow_hidden_size]
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
-        loss = NCE_loss(embeddings, batch.features)
+        loss = NCE_loss(embeddings, batch.sequences)
         if self.__config.encoder.name in ["GNN", "HYBRID"
                                           ] and self.__pretrain_gnn is None:
             if self.__config.encoder.name == "GNN":
@@ -117,7 +117,7 @@ class FlowCLPretraining(LightningModule):
         # [n_flow; flow_hidden_size]
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
-        loss = NCE_loss(embeddings, batch.features)
+        loss = NCE_loss(embeddings, batch.sequences)
         if self.__config.encoder.name in ["GNN", "HYBRID"
                                           ] and self.__pretrain_gnn is None:
             if self.__config.encoder.name == "GNN":
@@ -133,7 +133,7 @@ class FlowCLPretraining(LightningModule):
         # [n_flow; flow_hidden_size]
         embeddings = self(batch.ast_graphs, batch.statements,
                           batch.statements_per_label)
-        loss = NCE_loss(embeddings, batch.features)
+        loss = NCE_loss(embeddings, batch.sequences)
         if self.__config.encoder.name in ["GNN", "HYBRID"
                                           ] and self.__pretrain_gnn is None:
             if self.__config.encoder.name == "GNN":

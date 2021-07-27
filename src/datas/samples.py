@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from torch_geometric.data import Data, Batch
 import numpy
 import torch
@@ -12,6 +12,7 @@ class ValueFlow:
     ast_graphs: List[Data]
     statements_idx: Optional[List[int]] = None
     feature: Optional[numpy.ndarray] = None  # [feature dim,]
+    sequence: Optional[Tuple[str, str]] = None  # (apis, types)
 
 
 class ValueFlowBatch:
@@ -27,16 +28,17 @@ class ValueFlowBatch:
                           for value_flow in value_flows]))
 
         # [batch size, feature dim]
-        self.features = numpy.full(
-            (len(value_flows), value_flows[0].feature.shape[0]),
-            0,
-            dtype=numpy.long)
+        # self.features = numpy.full(
+        #     (len(value_flows), value_flows[0].feature.shape[0]),
+        #     0,
+        #     dtype=numpy.long)
         self.ast_graphs = []
         for i, value_flow in enumerate(value_flows):
-            self.features[i] = value_flow.feature
+            # self.features[i] = value_flow.feature
             self.ast_graphs.extend(value_flow.ast_graphs)
-        self.features = torch.from_numpy(self.features)
+        # self.features = torch.from_numpy(self.features)
         self.ast_graphs = Batch.from_data_list(self.ast_graphs)
+        self.sequences = [value_flow.sequence for value_flow in value_flows]
 
     def __len__(self):
         return len(self.statements_per_label)
@@ -44,14 +46,14 @@ class ValueFlowBatch:
     def pin_memory(self) -> "ValueFlowBatch":
         self.statements_per_label = self.statements_per_label.pin_memory()
         self.statements = self.statements.pin_memory()
-        self.features = self.features.pin_memory()
+        # self.features = self.features.pin_memory()
         self.ast_graphs = self.ast_graphs.pin_memory()
         return self
 
     def move_to_device(self, device: torch.device):
         self.statements_per_label = self.statements_per_label.to(device)
         self.statements = self.statements.to(device)
-        self.features = self.features.to(device)
+        # self.features = self.features.to(device)
         self.ast_graphs = self.ast_graphs.to(device)
 
 
@@ -84,7 +86,7 @@ class ValueFlowPairBatch:
         for i, value_flow_pair in enumerate(value_flow_pairs):
             self.ast_graphs1.extend(value_flow_pair.value_flow_1.ast_graphs)
             self.ast_graphs2.extend(value_flow_pair.value_flow_2.ast_graphs)
-        self.features = torch.from_numpy(self.features)
+        
         self.ast_graphs1 = Batch.from_data_list(self.ast_graphs1)
         self.ast_graphs2 = Batch.from_data_list(self.ast_graphs2)
 

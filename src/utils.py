@@ -6,6 +6,7 @@ import numpy
 import torch
 from transformers import RobertaTokenizer
 import os
+from src.sequence_analyzer.sequence_analyzer import SequencesAnalyzer
 
 PAD = "<PAD>"
 UNK = "<UNK>"
@@ -172,13 +173,13 @@ def cut_lower_embeddings(
         mask_value: float = -1e9) -> Tuple[torch.Tensor, torch.Tensor]:
     """Cut lower embeddings into upper embeddings
 
-        Args:
-            lower_embeddings (Tensor): [total n_lower; units]
-            statements_per_label (Tensor): [n_upper]
-            mask_value (float): -inf
+    Args:
+        lower_embeddings (Tensor): [total n_lower; units]
+        statements_per_label (Tensor): [n_upper]
+        mask_value (float): -inf
 
-        Returns: [n_upper; max n_lower; units], [n_upper; max n_lower]
-        """
+    Returns: [n_upper; max n_lower; units], [n_upper; max n_lower]
+    """
     batch_size = len(lower_per_upper)
     max_context_len = max(lower_per_upper)
 
@@ -193,3 +194,24 @@ def cut_lower_embeddings(
         upper_attn_mask[i, cur_size:] = mask_value
 
     return upper_embeddings, upper_attn_mask
+
+
+def calc_strs_sim_matrix(strs: List[str],
+                         device: torch.device) -> torch.Tensor:
+    """
+    caculate the sequence similarity between each vector in a and b
+
+    Args:
+        strs (List[str]): [N] a list of strings
+        device:
+
+    Returns:
+        [N; N]
+    """
+    N = len(strs)
+    res = torch.zeros(N, N, dtype=torch.float, device=device)
+    for i in range(N):
+        for j in range(i + 1, N):
+            res[i][j] = res[j][i] = SequencesAnalyzer(strs[i],
+                                                      strs[j]).similarity()
+    return res
