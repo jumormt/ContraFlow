@@ -24,7 +24,7 @@ allprojects {
 
 task joernTools(type: Exec) {
     workingDir './python/joern-tools'
-    commandLine 'python3', 'setup.py', 'install', '--user'
+    commandLine '/home/xiao/program/anaconda3/envs/gnn/bin/python', 'setup.py', 'install', '--user'
 }
 
 // Copy extensions and plugins into Octopus plugin directory

@@ -56,8 +56,10 @@ class NodeType(Enum):
     PrimaryExpression = 41
     RelationalExpression = 42
     CallExpression = 43
+    CastExpression = 44
+    CastTarget = 45
 
-    PLAIN = 44
+    PLAIN = 46
 
 
 @dataclass

@@ -19,7 +19,11 @@ The documentation can be found [here](http://joern.readthedocs.org/en/latest/)
 
 ## how to build
 
+first install java 1.8 and gradle 4.4.1 (https://services.gradle.org/distributions/gradle-4.4.1-bin.zip)
+
 ```
+sudo apt update
+sudo apt install python3-setuptools libgraphviz-dev
 sudo ./build.sh
 ```
 
