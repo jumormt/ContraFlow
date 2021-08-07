@@ -1,5 +1,9 @@
 # ICSE22
 
+```py
+PYTHONPATH="." python src/vul_detect.py -c configs/vul_detect.yaml
+```
+
 value flow sample 
 [st len, str len, value flow len], value flow len
 
