@@ -30,10 +30,11 @@ def vul_detect(config_path: str):
 
     # Load tokenizer
     if config.encoder.name == "LSTM":
-        dataset_name = basename(config.data_folder)
-        tokenizer_path = join(f"../data/tokenizer/{dataset_name}",
-                              "tokenizer.json")
-        tokenizer = Tokenizer.from_file(tokenizer_path)
+        # dataset_name = basename(config.data_folder)
+        # tokenizer_path = join(f"../data/tokenizer/{dataset_name}",
+        #                       "tokenizer.json")
+        # tokenizer = Tokenizer.from_file(tokenizer_path)
+        tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
         vocab_size = tokenizer.get_vocab_size()
         pad_idx = tokenizer.token_to_id(PAD)
     elif config.encoder.name in ["BERT", "GNN", "HYBRID"]:

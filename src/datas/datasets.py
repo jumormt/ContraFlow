@@ -65,11 +65,12 @@ class ValueFlowDataset(Dataset):
         self.__n_samples = len(self.__value_flows)
         self.__tokenizer = tokenizer
         if config.encoder.name == "LSTM":
-            self.__tokenizer.enable_padding(pad_id=tokenizer.token_to_id(PAD),
-                                            pad_token=PAD,
-                                            length=config.max_token_parts)
-            self.__tokenizer.enable_truncation(
-                max_length=config.max_token_parts)
+            # self.__tokenizer.enable_padding(pad_id=tokenizer.token_to_id(PAD),
+            #                                 pad_token=PAD,
+            #                                 length=config.max_token_parts)
+            # self.__tokenizer.enable_truncation(
+            #     max_length=config.max_token_parts)
+            pass
         elif config.encoder.name == "BERT":
             pass
         elif config.encoder.name == "GNN":
@@ -253,11 +254,12 @@ class MethodSampleDataset(Dataset):
         self.__n_samples = len(self.__methods)
         self.__tokenizer = tokenizer
         if config.encoder.name == "LSTM":
-            self.__tokenizer.enable_padding(pad_id=tokenizer.token_to_id(PAD),
-                                            pad_token=PAD,
-                                            length=config.max_token_parts)
-            self.__tokenizer.enable_truncation(
-                max_length=config.max_token_parts)
+            # self.__tokenizer.enable_padding(pad_id=tokenizer.token_to_id(PAD),
+            #                                 pad_token=PAD,
+            #                                 length=config.max_token_parts)
+            # self.__tokenizer.enable_truncation(
+            #     max_length=config.max_token_parts)
+            pass
         elif config.encoder.name == "BERT":
             pass
         elif config.encoder.name == "GNN":

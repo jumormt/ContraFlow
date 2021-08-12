@@ -62,26 +62,41 @@ def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
     Returns:
         : [max_len; len(values)], dtype=numpy.compat.long
     """
+    res = numpy.full((max_len, len(values)),
+                     tokenizer.token_to_id(PAD),
+                     dtype=numpy.compat.long)
 
-    if encoder_name == "LSTM":
-        res = numpy.full((max_len, len(values)),
-                         tokenizer.token_to_id(PAD),
-                         dtype=numpy.compat.long)
-
-        for i, value in enumerate(values):
-            res[:, i] = tokenizer.encode(value).ids
-    elif encoder_name in ["BERT", "GNN", "HYBRID"]:
-        res = numpy.full((max_len, len(values)),
-                         tokenizer.pad_token_id,
-                         dtype=numpy.compat.long)
-        for i, value in enumerate(values):
+    for i, value in enumerate(values):
+        if encoder_name in ["BERT", "HYBRID"]:
             tokens = [tokenizer.cls_token
                       ] + tokenizer.tokenize(value) + [tokenizer.sep_token]
-            ids = tokenizer.convert_tokens_to_ids(tokens)
-            less_len = min(len(ids), max_len)
-            res[:less_len, i] = ids[:less_len]
-    else:
-        raise ValueError(f"Cant find encoder name: {encoder_name}!")
+        elif encoder_name in ["LSTM", "GNN"]:
+            tokens = tokenizer.tokenize(value)
+        else:
+            raise ValueError(f"Cant find encoder name: {encoder_name}!")
+        ids = tokenizer.convert_tokens_to_ids(tokens)
+        less_len = min(len(ids), max_len)
+        res[:less_len, i] = ids[:less_len]
+
+    # if encoder_name == "LSTM":
+    #     res = numpy.full((max_len, len(values)),
+    #                      tokenizer.token_to_id(PAD),
+    #                      dtype=numpy.compat.long)
+
+    #     for i, value in enumerate(values):
+    #         res[:, i] = tokenizer.encode(value).ids
+    # elif encoder_name in ["BERT", "GNN", "HYBRID"]:
+    #     res = numpy.full((max_len, len(values)),
+    #                      tokenizer.pad_token_id,
+    #                      dtype=numpy.compat.long)
+    #     for i, value in enumerate(values):
+    #         tokens = [tokenizer.cls_token
+    #                   ] + tokenizer.tokenize(value) + [tokenizer.sep_token]
+    #         ids = tokenizer.convert_tokens_to_ids(tokens)
+    #         less_len = min(len(ids), max_len)
+    #         res[:less_len, i] = ids[:less_len]
+    # else:
+    #     raise ValueError(f"Cant find encoder name: {encoder_name}!")
     return res
 
 
