@@ -212,6 +212,41 @@ def calc_strs_sim_matrix(strs: List[str],
     res = torch.zeros(N, N, dtype=torch.float, device=device)
     for i in range(N):
         for j in range(i + 1, N):
+
             res[i][j] = res[j][i] = SequencesAnalyzer(strs[i],
                                                       strs[j]).similarity()
+    return res
+
+
+def calc_strs2_sim_matrix(apis: List[str], types: List[str],
+                          device: torch.device) -> torch.Tensor:
+    """
+    caculate the sequence similarity between each vector in a and b
+
+    Args:
+        apis (List[str]): [N] a list of apis
+        types (List[str]): [N] a list of types
+        device:
+
+    Returns:
+        [N; N]
+    """
+    N = len(apis)
+    res = torch.zeros(N, N, dtype=torch.float, device=device)
+    for i in range(N):
+        for j in range(i + 1, N):
+            if (len(apis[i]) == 0 or len(apis[j]) == 0):
+                if (len(types[i]) != 0 and len(types[j]) != 0):
+                    res[i][j] = res[j][i] = SequencesAnalyzer(
+                        types[i], types[j]).similarity()
+                else:
+                    res[i][j] = res[j][i] = 0
+            else:
+                if (len(types[i]) != 0 and len(types[j]) != 0):
+                    res[i][j] = res[j][i] = (
+                        SequencesAnalyzer(apis[i], apis[j]).similarity() +
+                        SequencesAnalyzer(types[i], types[j]).similarity()) / 2
+                else:
+                    res[i][j] = res[j][i] = SequencesAnalyzer(
+                        apis[i], apis[j]).similarity()
     return res

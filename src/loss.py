@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, List
-from src.utils import calc_sim_matrix, calc_strs_sim_matrix
+from src.utils import calc_sim_matrix, calc_strs_sim_matrix, calc_strs2_sim_matrix
 import torch
 
 
@@ -83,11 +83,14 @@ def NCE_loss(embeddings: torch.Tensor,
     # [N; N]
     sim_matrix = calc_sim_matrix(embeddings, embeddings)
     apis, types = zip(*sequences)
-    apis_sim = calc_strs_sim_matrix(apis, embeddings.get_device())
-    types_sim = calc_strs_sim_matrix(types, embeddings.get_device())
+    # apis_sim = calc_strs_sim_matrix(apis, embeddings.get_device())
+    # types_sim = calc_strs_sim_matrix(types, embeddings.get_device())
+
+    sim = calc_strs2_sim_matrix(apis, types, embeddings.get_device())
     # sim_slice = (calc_sim_matrix(features, features) -
     #              torch.eye(n_sample, device=embeddings.get_device())) > thres
-    sim_slice = ((apis_sim + types_sim) / 2) > thres
+    # sim_slice = ((apis_sim + types_sim) / 2) > thres
+    sim_slice = sim > thres
     loss = 0
     for i in range(n_sample):
         positive_exp_sim_sum = torch.exp(sim_matrix[i][sim_slice[i]]).sum()

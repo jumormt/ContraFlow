@@ -11,6 +11,7 @@ from transformers import RobertaTokenizer
 from typing import Union
 from src.joern.ast_generator import build_ln_to_ast
 from torch_geometric.data import Data
+from os.path import join
 
 
 class ASTDataset(Dataset):
@@ -50,7 +51,7 @@ class ASTDataset(Dataset):
 
 class ValueFlowDataset(Dataset):
     """
-    [{"file": "dataset/project/commitid/files/*", "flow": [line 1, line 2, ...], "apis":"123", "types":"123"}]
+    [{"file": "dataset/project/commitid/files/*", "graph_path": "dataset/project/commitid/graphs/*", "flow": [line 1, line 2, ...], "apis":"123", "types":"123"}]
 
     """
     def __init__(self, data_path: str, config: DictConfig,
@@ -85,7 +86,10 @@ class ValueFlowDataset(Dataset):
         value_flow = self.__value_flows[index]
         assert "file" in value_flow, f"{value_flow} do not contain key 'file'"
         file_path = value_flow["file"]
-        nodes_path, edges_path = get_ast_path_from_file(file_path)
+        nodes_path, edges_path = join(value_flow["graph_path"],
+                                      "nodes.csv"), join(
+                                          value_flow["graph_path"],
+                                          "edges.csv")
         with open(file_path, encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
         ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
@@ -236,7 +240,7 @@ class ValueFlowPairDataset(Dataset):
 
 class MethodSampleDataset(Dataset):
     """
-    [{"file": "dataset/project/commitid/files/*", "label":0, "flaws":[line,], "flows": [[line 1, line 2, ...], ...]}]
+    [{"file": "dataset/project/commitid/files/*", "graph_path": "dataset/project/commitid/graphs/*", "label":0, "flaws":[line,], "flows": [[line 1, line 2, ...], ...]}]
     """
     def __init__(self, data_path: str, config: DictConfig,
                  tokenizer: Union[Tokenizer, RobertaTokenizer]) -> None:
@@ -277,7 +281,8 @@ class MethodSampleDataset(Dataset):
         value_flows = list()
         assert "file" in method, f"{method} do not contain key 'file'"
         file_path = method["file"]
-        nodes_path, edges_path = get_ast_path_from_file(file_path)
+        nodes_path, edges_path = join(method["graph_path"], "nodes.csv"), join(
+            method["graph_path"], "edges.csv")
         with open(file_path, encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
         ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)

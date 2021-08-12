@@ -18,7 +18,7 @@ def test_ast():
 
 
 def test_seq_sim():
-    return SequencesAnalyzer("aabccfeg", "aabccfegfg").similarity()
+    return SequencesAnalyzer("", "ab").similarity()
 
 
 def test_ast_batch():
@@ -52,5 +52,5 @@ def test_ast_batch():
 
 if __name__ == "__main__":
     # print(NodeType.__members__)
-    # print(test_seq_sim())
-    test_ast_batch()
+    print(test_seq_sim())
+    # test_ast_batch()
