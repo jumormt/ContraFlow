@@ -43,6 +43,10 @@ def add_ast_childs(edges: List[Dict],
     for edge in edges:
         if ("type" in edge and edge["type"] == "IS_AST_PARENT"):
             assert "start" in edge and "end" in edge, f"{edge} do not contain key 'start' 'edge'"
+            if node_info[int(edge['end'])]['type'] in ['Condition', 'ForInit']:
+                location = node_info[int(edge['end'])]['location']
+                if location.strip() != '' and len(location.split(':')) != 0:
+                    node_info[int(edge['end'])]['parent'] = int(edge['start'])
             if int(edge["start"]) in node_info:
                 if "childs" in node_info[int(edge["start"])]:
                     node_info[int(edge["start"])]["childs"].append(
@@ -100,15 +104,22 @@ def build_ln_to_ast(file_path: str, nodes_path: str,
     for ln in ln_to_nodeid:
 
         type_root = node_info[ln_to_nodeid[ln][0]]["type"]
-        if type_root in ["Statement", "Function", "Condition"]:
-            if type_root == "Condition":
-                assert ln_to_nodeid[ln][
-                    0] - 1 in node_info, f"{ln_to_nodeid[ln][0] - 1} not in node_info"
-                assert "code" in node_info[
-                    ln_to_nodeid[ln][0] -
-                    1], f"'code' not in {node_info[ln_to_nodeid[ln][0] - 1]}"
-                content = node_info[ln_to_nodeid[ln][0] - 1]["code"]
-                type_ = node_info[ln_to_nodeid[ln][0] - 1]["type"]
+        if type_root in ["Statement", "Function", "Condition", "ForInit"]:
+            if type_root in ["Condition", "ForInit"]:
+                if 'parent' in node_info[ln_to_nodeid[ln][0]]:
+                    assert "code" in node_info[node_info[ln_to_nodeid[ln][0]][
+                        'parent']], f"'code' not in {node_info[node_info[ln_to_nodeid[ln][0]]['parent']]}"
+
+                    type_ = node_info[node_info[ln_to_nodeid[ln][0]]
+                                      ['parent']]["type"]
+                    if (type_ == NodeType.DoStatement):
+                        assert ln - 1 < len(
+                            file_content
+                        ), f"{file_path} and {nodes_path} does not match"
+                        content = file_content[ln - 1].strip()
+                    else:
+                        content = node_info[node_info[ln_to_nodeid[ln][0]]
+                                            ['parent']]['code']
             elif type_root == "Function":
                 assert ln_to_nodeid[ln][
                     0] + 1 in node_info, f"{ln_to_nodeid[ln][0] + 1} not in node_info"

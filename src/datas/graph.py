@@ -61,6 +61,29 @@ class NodeType(Enum):
 
     PLAIN = 46
 
+    PostIncDecOperationExpression = 47
+    IncDec = 48
+    UnaryExpression = 49
+    AndExpression = 50
+    ConditionalExpression = 51
+    MultiplicativeExpression = 52
+    SwitchStatement = 53
+    Label = 54
+    ContinueStatement = 55
+    ForInit = 56
+    ForStatement = 57
+    DoStatement = 58
+    BitAndExpression = 59
+    InclusiveOrExpression = 60
+    InitializerList = 61
+    ClassDefStatement = 62
+    GotoStatement = 63
+    ClassDef = 64
+    Expression = 65
+    ExclusiveOrExpression = 66
+
+
+
 
 @dataclass
 class ASTNode:
