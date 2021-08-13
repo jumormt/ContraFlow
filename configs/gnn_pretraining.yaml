@@ -1,8 +1,8 @@
-data_folder: "../data/gnn_pretraining/d2a"
+data_folder: "data/gnn_pretraining/d2a"
 
 max_token_parts: 32
 num_workers: 8
-
+seed: 7
 ast:
   embed_dim: 64
   hidden_dim: 64

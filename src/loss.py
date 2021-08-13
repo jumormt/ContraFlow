@@ -79,7 +79,7 @@ def NCE_loss(embeddings: torch.Tensor,
     Returns: loss
 
     """
-    n_sample = features.size(0)
+    n_sample = embeddings.size(0)
     # [N; N]
     sim_matrix = calc_sim_matrix(embeddings, embeddings)
     apis, types = zip(*sequences)

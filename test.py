@@ -52,5 +52,8 @@ def test_ast_batch():
 
 if __name__ == "__main__":
     # print(NodeType.__members__)
-    print(test_seq_sim())
+    # print(test_seq_sim())
     # test_ast_batch()
+    with open("/home/chengxiao/project/ICSEDataSets/data/outputs/nginx/406a68003cfc3b9907bd40699c4a51df4cee3a5a/files/src/core/ngx_spinlock.c", "r", encoding="utf-8", errors="ignore") as f:
+        a = f.readlines()
+        print()

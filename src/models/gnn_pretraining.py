@@ -45,10 +45,10 @@ class GNNPretraining(LightningModule):
         raise KeyError(f"Optimizer {name} is not supported")
 
     def configure_optimizers(self) -> Dict:
-
+        parameters = self._get_parameters()
         optimizer = self._get_optimizer(
             self.__config.hyper_parameters.optimizer)(
-                self._get_parameters(),
+                [{"params": p} for p in parameters],
                 self.__config.hyper_parameters.learning_rate)
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,

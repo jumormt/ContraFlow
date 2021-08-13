@@ -231,6 +231,7 @@ class FlowGRULayer(nn.Module):
 
     def __init__(self, input_dim: int, out_dim: int, num_layers: int,
                  use_bi: bool, dropout: str, activation: str):
+        super().__init__()
         self.__flow_gru = nn.GRU(input_size=input_dim,
                                  hidden_size=out_dim,
                                  num_layers=num_layers,

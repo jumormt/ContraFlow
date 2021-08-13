@@ -35,8 +35,8 @@ def vul_detect(config_path: str):
         #                       "tokenizer.json")
         # tokenizer = Tokenizer.from_file(tokenizer_path)
         tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
-        vocab_size = tokenizer.get_vocab_size()
-        pad_idx = tokenizer.token_to_id(PAD)
+        vocab_size = tokenizer.vocab_size
+        pad_idx = tokenizer.pad_token_id
     elif config.encoder.name in ["BERT", "GNN", "HYBRID"]:
         tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
         vocab_size = tokenizer.vocab_size

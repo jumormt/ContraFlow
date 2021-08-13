@@ -1,9 +1,9 @@
-data_folder: "../data/vul_detect/d2a"
+data_folder: "data/vul_detect/d2a"
 
 max_token_parts: 32
 num_workers: 8
 pretrained: null
-
+seed: 7
 encoder:
   name: "BERT"
   embed_dim: 64

@@ -128,7 +128,7 @@ class FlowBERTEncoder(nn.Module):
                                                          config=bert_config)
         self.__flow_gru = FlowGRULayer(input_dim=bert_config.hidden_size,
                                        out_dim=config.flow_hidden_size,
-                                       num_layers=config.num_layers,
+                                       num_layers=config.flow_num_layers,
                                        use_bi=config.flow_use_bi_rnn,
                                        dropout=config.flow_dropout,
                                        activation=config.activation)
@@ -206,7 +206,7 @@ class FlowGNNEncoder(nn.Module):
                                                     pad_idx)
         self.__flow_gru = FlowGRULayer(input_dim=config.ast.hidden_dim,
                                        out_dim=config.flow_hidden_size,
-                                       num_layers=config.num_layers,
+                                       num_layers=config.flow_num_layers,
                                        use_bi=config.flow_use_bi_rnn,
                                        dropout=config.flow_dropout,
                                        activation=config.activation)

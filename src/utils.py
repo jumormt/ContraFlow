@@ -63,7 +63,7 @@ def strings_to_numpy(values: List[str], tokenizer: Union[Tokenizer,
         : [max_len; len(values)], dtype=numpy.compat.long
     """
     res = numpy.full((max_len, len(values)),
-                     tokenizer.token_to_id(PAD),
+                     tokenizer.pad_token_id,
                      dtype=numpy.compat.long)
 
     for i, value in enumerate(values):

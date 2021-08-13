@@ -10,7 +10,7 @@ from torch.optim import Adam, SGD, Adamax, RMSprop
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
 import torch.nn.functional as F
 from src.metrics import Statistic
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn import TransformerEncoder, TransformerEncoderLayer, parameter
 from torch_geometric.data import Batch
 from src.utils import cut_lower_embeddings
 
@@ -156,10 +156,10 @@ class VulDetectModel(LightningModule):
         raise KeyError(f"Optimizer {name} is not supported")
 
     def configure_optimizers(self) -> Dict:
-
+        parameters = self._get_parameters()
         optimizer = self._get_optimizer(
             self.__config.hyper_parameters.optimizer)(
-                self._get_parameters(),
+                [{"params": p} for p in parameters],
                 self.__config.hyper_parameters.learning_rate)
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,

@@ -91,7 +91,7 @@ class ValueFlowDataset(Dataset):
                                       "nodes.csv"), join(
                                           value_flow["graph_path"],
                                           "edges.csv")
-        with open(file_path, encoding="utf-8", errors="ignore") as f:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
         ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
         assert "flow" in value_flow, f"{value_flow} do not contain key 'flow'"
@@ -99,8 +99,10 @@ class ValueFlowDataset(Dataset):
         value_flow_raw = []
         ast_graphs = []
         for line in value_flow_lines:
-            assert line - 1 < len(
+            assert line - 2 < len(
                 file_content), f"value flow line overflow, check: f{file_path}"
+            if (line - 1 == len(file_content)):
+                line -= 1
             line_raw = file_content[line - 1].strip()
             value_flow_raw.append(line_raw)
             if line in ln_to_ast_graph:
@@ -173,7 +175,7 @@ class ValueFlowPairDataset(Dataset):
         assert "file" in pair[0], f"{pair[0]} do not contain key 'file'"
         file_path1 = pair[0]["file"]
         nodes_path1, edges_path1 = get_ast_path_from_file(file_path1)
-        with open(file_path1, encoding="utf-8", errors="ignore") as f:
+        with open(file_path1, "r", encoding="utf-8", errors="ignore") as f:
             file_content1 = f.readlines()
         ln_to_ast_graph1 = build_ln_to_ast(file_path1, nodes_path1,
                                            edges_path1)
@@ -204,7 +206,7 @@ class ValueFlowPairDataset(Dataset):
         assert "file" in pair[1], f"{pair[1]} do not contain key 'file'"
         file_path2 = pair[1]["file"]
         nodes_path2, edges_path2 = get_ast_path_from_file(file_path2)
-        with open(file_path2, encoding="utf-8", errors="ignore") as f:
+        with open(file_path2, "r", encoding="utf-8", errors="ignore") as f:
             file_content2 = f.readlines()
         ln_to_ast_graph2 = build_ln_to_ast(file_path2, nodes_path2,
                                            edges_path2)
@@ -285,7 +287,7 @@ class MethodSampleDataset(Dataset):
         file_path = method["file"]
         nodes_path, edges_path = join(method["graph_path"], "nodes.csv"), join(
             method["graph_path"], "edges.csv")
-        with open(file_path, encoding="utf-8", errors="ignore") as f:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             file_content = f.readlines()
         ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
 
@@ -294,6 +296,11 @@ class MethodSampleDataset(Dataset):
             value_flow_raw = []
             ast_graphs = []
             for line in value_flow_lines:
+                assert line - 2 < len(
+                    file_content
+                ), f"value flow line overflow, check: f{file_path}"
+                if (line - 1 == len(file_content)):
+                    line -= 1
                 line_raw = file_content[line - 1].strip()
                 value_flow_raw.append(line_raw)
                 if line in ln_to_ast_graph:

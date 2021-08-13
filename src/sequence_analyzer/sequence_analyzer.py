@@ -157,7 +157,7 @@ class SequencesAnalyzer:
                 H[row, col] = scores[best_action]
                 traceback[row, col] = self.traceback_symbols[best_action]
 
-        print(gapH)
+        # print(gapH)
         return {
             'result_matrix': H,
             'traceback_matrix': traceback,
