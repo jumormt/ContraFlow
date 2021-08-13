@@ -34,6 +34,10 @@ def filter_warnings():
                    category=UserWarning,
                    module="torch.optim.lr_scheduler",
                    lineno=234)  # load
+    filterwarnings("ignore",
+                   category=DeprecationWarning,
+                   module="pytorch_lightning.metrics",
+                   lineno=43)
 
 
 def count_lines_in_file(file_path: str) -> int:

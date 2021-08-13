@@ -55,7 +55,7 @@ class Statistic:
         }
         if group is not None:
             for key in list(metrics_dict.keys()):
-                metrics_dict[f"{group}/{key}"] = metrics_dict.pop(key)
+                metrics_dict[f"{group}_{key}"] = metrics_dict.pop(key)
         return metrics_dict
 
     @staticmethod
@@ -90,7 +90,7 @@ class Statistic:
             }
         if group is not None:
             for key in list(metrics_dict.keys()):
-                metrics_dict[f"{group}/{key}"] = metrics_dict.pop(key)
+                metrics_dict[f"{group}_{key}"] = metrics_dict.pop(key)
         return metrics_dict
 
     def calc_btp_metrics(self,

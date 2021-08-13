@@ -27,7 +27,7 @@ class FlowLSTMEncoder(nn.Module):
         self.__st_embedding = nn.Embedding(vocabulary_size,
                                            config.embed_dim,
                                            padding_idx=pad_idx)
-        torch.nn.init.xavier_normal(self.__st_embedding.weight.data)
+        torch.nn.init.xavier_normal_(self.__st_embedding.weight.data)
 
         self.__st_blstm = nn.LSTM(
             input_size=config.embed_dim,
