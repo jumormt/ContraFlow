@@ -51,7 +51,7 @@ class ASTDataset(Dataset):
 
 class ValueFlowDataset(Dataset):
     """
-    [{"file": "dataset/project/commitid/files/*", "graph_path": "dataset/project/commitid/graphs/*", "flow": [line 1, line 2, ...], "apis":"123", "types":"123"}]
+    [{"files": ["dataset/project/commitid/files/*"], "graph_paths": ["dataset/project/commitid/graphs/*"], "flow": ["0,1", "0,2"], "apis":"123", "types":"123"}]
 
     """
     def __init__(self, data_path: str, config: DictConfig,
@@ -86,27 +86,38 @@ class ValueFlowDataset(Dataset):
     def __getitem__(self, index) -> ValueFlow:
         value_flow = self.__value_flows[index]
         assert "file" in value_flow, f"{value_flow} do not contain key 'file'"
-        file_path = value_flow["file"]
-        nodes_path, edges_path = join(value_flow["graph_path"],
-                                      "nodes.csv"), join(
-                                          value_flow["graph_path"],
-                                          "edges.csv")
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            file_content = f.readlines()
-        ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
+        file_paths = value_flow["files"]
+        ln_to_ast_graphs = list()
+        for idx, graph_path in enumerate(value_flow["graph_paths"]):
+
+            nodes_path, edges_path = join(graph_path, "nodes.csv"), join(
+                graph_path, "edges.csv")
+            ln_to_ast_graph = build_ln_to_ast(file_paths[idx], nodes_path,
+                                              edges_path)
+            ln_to_ast_graphs.append(ln_to_ast_graph)
+        file_contents = []
+        for file_path in file_paths:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                file_content = f.readlines()
+            file_contents.append(file_content)
+
         assert "flow" in value_flow, f"{value_flow} do not contain key 'flow'"
         value_flow_lines = value_flow["flow"]
         value_flow_raw = []
         ast_graphs = []
         for line in value_flow_lines:
-            assert line - 2 < len(
-                file_content), f"value flow line overflow, check: f{file_path}"
-            if (line - 1 == len(file_content)):
-                line -= 1
-            line_raw = file_content[line - 1].strip()
+            spts = line.split(",")
+            file_idx, ln = int(spts[0]), int(spts[1])
+
+            assert ln - 2 < len(
+                file_contents[file_idx]
+            ), f"value flow line overflow, check: f{file_paths[file_idx]}"
+            if (ln - 1 == len(file_contents[file_idx])):
+                ln -= 1
+            line_raw = file_contents[file_idx][ln - 1].strip()
             value_flow_raw.append(line_raw)
-            if line in ln_to_ast_graph:
-                ast_graphs.append(ln_to_ast_graph[line].to_torch(
+            if ln in ln_to_ast_graphs[file_idx]:
+                ast_graphs.append(ln_to_ast_graphs[file_idx][ln].to_torch(
                     self.__tokenizer, self.__config.max_token_parts))
             else:
                 ast_graphs.append(
@@ -243,7 +254,7 @@ class ValueFlowPairDataset(Dataset):
 
 class MethodSampleDataset(Dataset):
     """
-    [{"file": "dataset/project/commitid/files/*", "graph_path": "dataset/project/commitid/graphs/*", "label":0, "flaws":[line,], "flows": [[line 1, line 2, ...], ...]}]
+    [{"files": ["dataset/project/commitid/files/*"], "graph_paths": ["dataset/project/commitid/graphs/*"], "label":0, "flaws":["file idx,line",], "flows": [["file idx,line",], ...]}]
     """
     def __init__(self, data_path: str, config: DictConfig,
                  tokenizer: Union[Tokenizer, RobertaTokenizer]) -> None:
@@ -284,27 +295,37 @@ class MethodSampleDataset(Dataset):
 
         value_flows = list()
         assert "file" in method, f"{method} do not contain key 'file'"
-        file_path = method["file"]
-        nodes_path, edges_path = join(method["graph_path"], "nodes.csv"), join(
-            method["graph_path"], "edges.csv")
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            file_content = f.readlines()
-        ln_to_ast_graph = build_ln_to_ast(file_path, nodes_path, edges_path)
+        file_paths = method["files"]
+        ln_to_ast_graphs = list()
+        for idx, graph_path in enumerate(method["graph_paths"]):
+
+            nodes_path, edges_path = join(graph_path, "nodes.csv"), join(
+                graph_path, "edges.csv")
+            ln_to_ast_graph = build_ln_to_ast(file_paths[idx], nodes_path,
+                                              edges_path)
+            ln_to_ast_graphs.append(ln_to_ast_graph)
+        file_contents = []
+        for file_path in file_paths:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                file_content = f.readlines()
+            file_contents.append(file_content)
 
         for i in flow_indexes:
             value_flow_lines = method["flows"][i]
             value_flow_raw = []
             ast_graphs = []
             for line in value_flow_lines:
-                assert line - 2 < len(
-                    file_content
-                ), f"value flow line overflow, check: f{file_path}"
-                if (line - 1 == len(file_content)):
-                    line -= 1
-                line_raw = file_content[line - 1].strip()
+                spts = line.split(",")
+                file_idx, ln = int(spts[0]), int(spts[1])
+                assert ln - 2 < len(
+                    file_contents[file_idx]
+                ), f"value flow line overflow, check: f{file_paths[file_idx]}"
+                if (ln - 1 == len(file_contents[file_idx])):
+                    ln -= 1
+                line_raw = file_contents[file_idx][ln - 1].strip()
                 value_flow_raw.append(line_raw)
-                if line in ln_to_ast_graph:
-                    ast_graphs.append(ln_to_ast_graph[line].to_torch(
+                if ln in ln_to_ast_graphs[file_idx]:
+                    ast_graphs.append(ln_to_ast_graphs[file_idx][ln].to_torch(
                         self.__tokenizer, self.__config.max_token_parts))
                 else:
                     ast_graphs.append(
@@ -314,9 +335,6 @@ class MethodSampleDataset(Dataset):
                                     childs=[])).to_torch(
                                         self.__tokenizer,
                                         self.__config.max_token_parts))
-            value_flow_raw = [
-                file_content[line - 1].strip() for line in value_flow_lines
-            ]
             statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
                                           self.__config.encoder.name,
                                           self.__config.max_token_parts)

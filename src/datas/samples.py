@@ -10,7 +10,7 @@ class ValueFlow:
     statements: numpy.ndarray  # [seq len; n_statements]
     n_statements: int
     ast_graphs: List[Data]
-    statements_idx: Optional[List[int]] = None
+    statements_idx: Optional[List[str]] = None
     feature: Optional[numpy.ndarray] = None  # [feature dim,]
     sequence: Optional[Tuple[str, str]] = None  # (apis, types)
 
@@ -115,7 +115,7 @@ class ValueFlowPairBatch:
 class MethodSample:
     value_flows: List[ValueFlow]
     label: int
-    flaws: List[int]
+    flaws: List[str]
 
 
 class MethodSampleBatch:
@@ -128,7 +128,7 @@ class MethodSampleBatch:
         self.labels = torch.tensor(
             [method_sample.label for method_sample in method_samples],
             dtype=torch.long)
-        self.flaws: List[List[int]] = [
+        self.flaws: List[List[str]] = [
             method_sample.flaws for method_sample in method_samples
         ]
 
