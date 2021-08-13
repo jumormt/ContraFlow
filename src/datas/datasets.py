@@ -279,7 +279,7 @@ class MethodSampleDataset(Dataset):
         assert "flows" in method, f"{method} do not contain key 'flows'"
         n_flow = min(len(method["flows"]),
                      self.__config.hyper_parameters.max_n_flow)
-        flow_indexes = numpy.arang(n_flow)
+        flow_indexes = numpy.arange(n_flow)
         numpy.random.shuffle(flow_indexes)
 
         value_flows = list()
@@ -317,13 +317,14 @@ class MethodSampleDataset(Dataset):
             value_flow_raw = [
                 file_content[line - 1].strip() for line in value_flow_lines
             ]
-            statements = strings_to_numpy(
-                value_flow_raw, self.__tokenizer, self.__config.encoder.name,
-                self.__config.encoder.max_token_parts)
-            value_flows.append(ValueFlow(statements=statements,
-                                         n_statements=len(value_flow_raw),
-                                         statements_idx=value_flow_lines),
-                               ast_graphs=ast_graphs)
+            statements = strings_to_numpy(value_flow_raw, self.__tokenizer,
+                                          self.__config.encoder.name,
+                                          self.__config.max_token_parts)
+            value_flows.append(
+                ValueFlow(statements=statements,
+                          n_statements=len(value_flow_raw),
+                          statements_idx=value_flow_lines,
+                          ast_graphs=ast_graphs))
         assert "label" in method, f"{method} do not contain key 'label'"
         assert "flaws" in method, f"{method} do not contain key 'flaws'"
         return MethodSample(value_flows=value_flows,

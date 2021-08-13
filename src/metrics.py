@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Optional
 
 import torch
@@ -12,11 +12,11 @@ class Statistic:
     false_negative: int = 0
     true_negative: int = 0
 
-    BTP_P: List = []
-    BTP_R: List = []
-    BTP_F1: List = []
+    BTP_P: List = field(default_factory=list)
+    BTP_R: List = field(default_factory=list)
+    BTP_F1: List = field(default_factory=list)
     # overlap, union, predicted, label
-    n_lines: List[Tuple[int, int, int, int]] = []
+    n_lines: List[Tuple[int, int, int, int]] = field(default_factory=list)
 
     def update(self, other_statistic: "Statistic"):
         self.true_positive += other_statistic.true_positive

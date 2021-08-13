@@ -39,9 +39,10 @@ class VulDetectModel(LightningModule):
                  pad_idx: int,
                  pretrain: Optional[str] = None,
                  pretrain_gnn: Optional[str] = None):
-        super.__init__()
+        super().__init__()
         self.__pretrain = pretrain
         self.__pretrain_gnn = pretrain_gnn
+        self.__config = config
         hidden_size = config.encoder.flow_hidden_size
         if pretrain is not None:
             print("Use pretrained weights for vulnerability detection model")
@@ -73,7 +74,7 @@ class VulDetectModel(LightningModule):
 
         # self-attention
         encoder_layers = TransformerEncoderLayer(hidden_size,
-                                                 config.nhead,
+                                                 config.n_head,
                                                  hidden_size,
                                                  config.self_attn_dropout,
                                                  batch_first=True)
@@ -156,10 +157,12 @@ class VulDetectModel(LightningModule):
         raise KeyError(f"Optimizer {name} is not supported")
 
     def configure_optimizers(self) -> Dict:
-        parameters = self._get_parameters()
+        parameters = [self.parameters()]
         optimizer = self._get_optimizer(
             self.__config.hyper_parameters.optimizer)(
-                [{"params": p} for p in parameters],
+                [{
+                    "params": p
+                } for p in parameters],
                 self.__config.hyper_parameters.learning_rate)
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
@@ -188,7 +191,7 @@ class VulDetectModel(LightningModule):
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
 
-        result: Dict = {"train/loss", loss}
+        result: Dict = {"train/loss": loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
             statistic = Statistic().calculate_statistic(
@@ -231,7 +234,7 @@ class VulDetectModel(LightningModule):
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
 
-        result: Dict = {"val/loss", loss}
+        result: Dict = {"val/loss": loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
             statistic = Statistic().calculate_statistic(
@@ -267,7 +270,6 @@ class VulDetectModel(LightningModule):
             else:
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
-
 
         result: Dict = {"test/loss", loss}
         with torch.no_grad():
