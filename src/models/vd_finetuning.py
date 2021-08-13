@@ -191,7 +191,7 @@ class VulDetectModel(LightningModule):
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
 
-        result: Dict = {"train/loss": loss}
+        result: Dict = {"train_loss": loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
             statistic = Statistic().calculate_statistic(
@@ -211,7 +211,7 @@ class VulDetectModel(LightningModule):
             result.update(btp_metric)
             self._log_training_step(result)
             self.log("F1",
-                     batch_metric["train/f1"],
+                     batch_metric["train_f1"],
                      prog_bar=True,
                      logger=False)
         return {"loss": loss, "statistic": statistic}
@@ -234,7 +234,7 @@ class VulDetectModel(LightningModule):
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
 
-        result: Dict = {"val/loss": loss}
+        result: Dict = {"val_loss": loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
             statistic = Statistic().calculate_statistic(
@@ -271,7 +271,7 @@ class VulDetectModel(LightningModule):
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
 
-        result: Dict = {"test/loss", loss}
+        result: Dict = {"test_loss", loss}
         with torch.no_grad():
             _, preds = logits.max(dim=1)
             statistic = Statistic().calculate_statistic(

@@ -110,7 +110,7 @@ class FlowCLPretraining(LightningModule):
             else:
                 loss = loss + 4 * self._encoder.__gnn_encoder._gnn_encoder.get_att_loss(
                 )
-        self.log("train/loss", loss, prog_bar=True, logger=False)
+        self.log("train_loss", loss, prog_bar=True, logger=False)
         return loss
 
     def validation_step(self, batch: ValueFlowBatch,

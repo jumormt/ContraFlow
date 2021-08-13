@@ -73,7 +73,7 @@ class GNNPretraining(LightningModule):
                       batch_idx: int) -> torch.Tensor:  # type: ignore
         # []
         loss = self(batch)
-        self.log("train/loss", loss, prog_bar=True, logger=False)
+        self.log("train_loss", loss, prog_bar=True, logger=False)
         return loss
 
     def validation_step(self, batch: Batch,
