@@ -4,7 +4,7 @@ max_token_parts: 32
 num_workers: 8
 seed: 7
 encoder:
-  name: "BERT"
+  name: "LSTM"
   embed_dim: 64
   activation: "relu"
 

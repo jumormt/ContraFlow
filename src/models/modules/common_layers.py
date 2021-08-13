@@ -239,7 +239,7 @@ class FlowGRULayer(nn.Module):
                                  dropout=dropout if num_layers > 1 else 0,
                                  batch_first=True)
         self.__dropout_flow_gru = nn.Dropout(dropout)
-        self.__flow_att = LocalAttention(out_dim)
+        self.__flow_att = LocalAttention(2 * out_dim)
         self.__flow_hidden = linear_after_attn(out_dim, out_dim, activation)
 
     def forward(self, statements_embeddings: torch.Tensor,
@@ -255,6 +255,7 @@ class FlowGRULayer(nn.Module):
         # [n_flow; max flow n_statements; st hidden size], [n_flow; max flow n_statements]
         flow_statments_embeddings, flow_statments_attn_mask = cut_lower_embeddings(
             statements_embeddings, statements_per_label, self.__negative_value)
+        max_flow_n_statements = flow_statments_embeddings.size(1)
 
         with torch.no_grad():
             sorted_path_lengths, sort_indices = torch.sort(
@@ -266,8 +267,10 @@ class FlowGRULayer(nn.Module):
             flow_statments_embeddings, sorted_path_lengths, batch_first=True)
         flow_hiddens, _ = self.__flow_gru(flow_statments_embeddings)
         # [n_flow; max flow n_statements; 2*flow hidden size]
-        flow_hiddens, _ = nn.utils.rnn.pad_packed_sequence(flow_hiddens,
-                                                           batch_first=True)
+        flow_hiddens, _ = nn.utils.rnn.pad_packed_sequence(
+            flow_hiddens,
+            batch_first=True,
+            total_length=max_flow_n_statements)
         # [n_flow; max flow n_statements; 2*flow hidden size]
         flow_hiddens = self.__dropout_flow_gru(
             flow_hiddens)[reverse_sort_indices]

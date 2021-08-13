@@ -37,7 +37,7 @@ class FlowLSTMEncoder(nn.Module):
             dropout=config.st_dropout if config.st_num_layers > 1 else 0,
         )
         self.__dropout_st_blstm = nn.Dropout(config.st_dropout)
-        self.__st_att = LocalAttention(config.st_hidden_size)
+        self.__st_att = LocalAttention(2 * config.st_hidden_size)
         self.__st_hidden = linear_after_attn(config.st_hidden_size,
                                              config.st_hidden_size,
                                              config.activation)
@@ -74,7 +74,8 @@ class FlowLSTMEncoder(nn.Module):
             embeds, sorted_path_lengths)
         st_hiddens, (_, _) = self.__st_blstm(packed_embeddings)
         # [seq len; total n_statements, 2 * st hidden size]
-        st_hiddens, _ = nn.utils.rnn.pad_packed_sequence(st_hiddens)
+        st_hiddens, _ = nn.utils.rnn.pad_packed_sequence(
+            st_hiddens, total_length=statements.size(0))
         # [total n_statements, seq len; 2 * st hidden size]
         st_hiddens_bf = self.__dropout_st_blstm(st_hiddens.permute(
             1, 0, 2))[reverse_sort_indices]
@@ -247,12 +248,17 @@ class FlowHYBRIDEncoder(nn.Module):
         vocabulary_size (int): the size of vacabulary, e.g. tokenizer.get_vocab_size()
         pad_idx (int): the index of padding token, e.g., tokenizer.token_to_id(PAD)
     """
-    def __init__(self, config: DictConfig, vocabulary_size: int, pad_idx: int, pretrain: Optional[str] = None):
+    def __init__(self,
+                 config: DictConfig,
+                 vocabulary_size: int,
+                 pad_idx: int,
+                 pretrain: Optional[str] = None):
         super().__init__()
         # we can use the tokenizer of bert
         self.__lstm_encoder = FlowLSTMEncoder(config, vocabulary_size, pad_idx)
         self.__bert_encoder = FlowBERTEncoder(config, vocabulary_size, pad_idx)
-        self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx, pretrain)
+        self.__gnn_encoder = FlowGNNEncoder(config, vocabulary_size, pad_idx,
+                                            pretrain)
         self.__fuse_layer = nn.Linear(3 * config.flow_hidden_size,
                                       config.flow_hidden_size)
 
