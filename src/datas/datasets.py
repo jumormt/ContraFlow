@@ -85,7 +85,7 @@ class ValueFlowDataset(Dataset):
 
     def __getitem__(self, index) -> ValueFlow:
         value_flow = self.__value_flows[index]
-        assert "file" in value_flow, f"{value_flow} do not contain key 'file'"
+        assert "files" in value_flow, f"{value_flow} do not contain key 'file'"
         file_paths = value_flow["files"]
         ln_to_ast_graphs = list()
         for idx, graph_path in enumerate(value_flow["graph_paths"]):
@@ -294,7 +294,7 @@ class MethodSampleDataset(Dataset):
         numpy.random.shuffle(flow_indexes)
 
         value_flows = list()
-        assert "file" in method, f"{method} do not contain key 'file'"
+        assert "files" in method, f"{method} do not contain key 'file'"
         file_paths = method["files"]
         ln_to_ast_graphs = list()
         for idx, graph_path in enumerate(method["graph_paths"]):
