@@ -1,4 +1,4 @@
-# ICSE22
+# ContraFlow
 
 ```py
 PYTHONPATH="." python src/vul_detect.py -c configs/vul_detect.yaml
